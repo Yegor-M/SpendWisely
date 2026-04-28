@@ -30,6 +30,18 @@ Single Dockerfile per service, `dev` and `prod` as named build targets.
 **Why:** Keeps dev and prod environments in lockstep — same base image, same dependency install layer. `docker compose` selects the right target via `build.target`.
 **Tradeoff:** `NEXT_PUBLIC_API_URL` is baked in at build time (Next.js limitation); prod builds hardcode `/api/v1` and rely on nginx to proxy correctly.
 
+## Universal LLM provider via ABC pattern
+`services/llm.py` defines `LLMProvider(ABC)` with concrete `ClaudeProvider`, `OpenAIProvider`, `GeminiProvider` implementations and a `get_provider()` factory.
+**Why:** User wanted flexibility to switch between Claude, OpenAI, and Gemini without rewiring the enricher. Single shared system prompt and user message builder keeps behaviour consistent across providers. Factory returns `None` gracefully when the API key is missing, so missing credentials don't crash the ingest.
+**Tradeoff:** Three SDKs in requirements even if only one is used. Provider SDK packages are imported lazily inside `__init__` so unused packages don't import at startup.
+**Gotcha:** Gemini can return `None` from `.text` on safety-blocked responses — guard with `or "{}"` before json.loads.
+
+## FX conversions as effective income (pending)
+The Pekao PLN account records zero real income — salary arrives in a separate USD account and is converted to PLN via "Wymiana walut - sprzedaż USD za PLN". The current `is_internal=True` on all FX rows means income = 0 and savings rate = 0% everywhere.
+**Why the decision matters:** Treating FX conversions as internal is correct to prevent double-counting, but without the USD account in the dataset there is no income signal at all. The PLN-side of each FX conversion represents real purchasing power entering the account and should serve as the income proxy.
+**Options evaluated:** (a) import USD account CSV and derive salary from it — accurate but requires a second parser; (b) treat FX PLN-side as `direction=income, is_internal=False` — fast, slightly imprecise (exchange timing ≠ salary receipt date). Option (b) is the planned quick fix.
+**Tradeoff:** With option (b), income appears on the day of currency exchange, not the day salary was paid. For monthly averages this is acceptable; for daily cashflow it introduces noise.
+
 ## nginx as reverse proxy in production (single port, path-based routing)
 `/api/` → FastAPI, `/` → Next.js, all on port 80.
 **Why:** Avoids CORS entirely — browser sees one origin. Simpler than configuring CORS headers across environments. TLS terminates at nginx, not in app code.
