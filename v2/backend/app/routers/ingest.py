@@ -15,7 +15,9 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 @router.post("", response_model=IngestResult)
 async def ingest_csv(
     file: UploadFile = File(...),
-    use_claude: bool = Query(default=True),
+    use_llm: bool  = Query(default=True,  description="Run LLM categorisation pass"),
+    provider: str  = Query(default="",    description="Override LLM provider (claude|openai|gemini)"),
+    model: str     = Query(default="",    description="Override model name"),
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(400, "Only .csv files are supported")
@@ -30,7 +32,7 @@ async def ingest_csv(
         os.unlink(tmp_path)
 
     enricher = BankEnricher(df)
-    df = enricher.run(use_claude=use_claude)
+    df = enricher.run(use_llm=use_llm, provider=provider, model=model)
 
     with db() as conn:
         existing_ids = set(
