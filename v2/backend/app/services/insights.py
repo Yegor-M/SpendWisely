@@ -24,7 +24,8 @@ def _real_income(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _pln_expenses(df: pd.DataFrame) -> pd.DataFrame:
-    return _real_expenses(df)[df["currency"] == "PLN"]
+    exp = _real_expenses(df)
+    return exp[exp["currency"] == "PLN"]
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +276,8 @@ def day_of_week_patterns(df: pd.DataFrame) -> list[dict]:
 # ---------------------------------------------------------------------------
 def spend_velocity(df: pd.DataFrame) -> dict:
     """How far into the month are we, and what's the EOM projection?"""
-    exp = _real_expenses(df)[df["currency"] == "PLN"].copy()
+    _exp = _real_expenses(df)
+    exp = _exp[_exp["currency"] == "PLN"].copy()
     if exp.empty:
         return {}
 
@@ -350,7 +352,8 @@ def category_deltas(df: pd.DataFrame) -> list[dict]:
 # Income sources
 # ---------------------------------------------------------------------------
 def income_sources(df: pd.DataFrame) -> list[dict]:
-    inc = _real_income(df)[df["currency"] == "PLN"].copy()
+    _inc = _real_income(df)
+    inc = _inc[_inc["currency"] == "PLN"].copy()
     if inc.empty:
         return []
     total = float(inc["abs_amount"].sum())
