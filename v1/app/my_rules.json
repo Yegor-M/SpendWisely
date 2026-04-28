@@ -1,0 +1,208 @@
+[
+  {
+    "category": "Accounting",
+    "pattern": "\\b(wfirma|faktura|invoice|ksieg|księg|autopay|innovative)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Groceries",
+    "pattern": "\\b(biedronka|lidl|zabka|żabka|kaufland|auchan|carrefour|netto|dino)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Transport",
+    "pattern": "\\b(uber|bolt|jakdojade|mpk|zkm|flixbus|pkp|intercity)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Food & Dining",
+    "pattern": "\\b(pyszne|glovo|wolt|kfc|mcdonalds|pizza|sushi|restauracja|wok|lisek|burger|grill|kebab|restaurant)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Coffee/Ice Cream",
+    "pattern": "\\b(kawiarnia|coffeeheaven|starbucks|costa|caffe|kawa|kawalerka|gelateria)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Subscriptions",
+    "pattern": "\\b(netflix|spotify|google|apple|microsoft|adobe|jdmi|dropbox|openai|chatgpt)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Services",
+    "pattern": "\\b(barber|implant|ares|fryzjer|salon)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Rent & Housing",
+    "pattern": "\\b(agnieszka|czynsz|najem|czynszu|administracja)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Healthcare",
+    "pattern": "\\b(apteka|pharmacy|medicover|lux\\s?med|centrum\\s?medyczne)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "ATM / Cash",
+    "pattern": "\\b(bankomat|wypłata|atm)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Transfers",
+    "pattern": "\\b(przelew|transfer)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Pet Funtik",
+    "pattern": "\\b(zoologiczny)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Coffee/Ice Cream",
+    "pattern": "\\b(kawiarnia|coffeeheaven|starbucks|costa|caffe|kawa|kawalerka|gelateria|caffetteria)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Crypto",
+    "pattern": "\\b(binance)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Plane Tickets",
+    "pattern": "\\b(paypro|wizzair)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Presents",
+    "pattern": "\\b(kwiaciarnia)\\b",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type",
+      "counterparty_address"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Stuff from allegro",
+    "pattern": "allegro",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Entertainment",
+    "pattern": "klub|kino|helios|www.midaticket.it",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type"
+    ],
+    "comment": ""
+  },
+  {
+    "category": "Cloth",
+    "pattern": "zara",
+    "fields": [
+      "counterparty",
+      "title",
+      "operation_type"
+    ],
+    "comment": ""
+  }
+]
