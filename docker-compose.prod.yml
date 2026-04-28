@@ -1,0 +1,55 @@
+# Production deployment
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+#
+# nginx sits in front, routing:
+#   /api/  → backend:8000
+#   /      → frontend:3000
+#
+# Set secrets in v2/backend/.env (never commit the real file).
+# TLS: drop your certs in docker/nginx/certs/ and uncomment the https block in nginx.conf.
+
+services:
+  backend:
+    build:
+      context: ./v2/backend
+      target: prod
+    expose:
+      - "8000"
+    volumes:
+      - spendwisely_db:/data
+    environment:
+      DB_PATH: /data/spendwisely.duckdb
+    env_file:
+      - ./v2/backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./v2/frontend
+      target: prod
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1   # nginx rewrites /api → backend
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      # - "443:443"   # uncomment after adding TLS certs
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  spendwisely_db:

@@ -24,6 +24,9 @@ v1/app/output/
 .idea/
 .vscode/
 
+# Docker
+docker/nginx/certs/
+
 # v2 runtime artifacts
 v2/backend/*.duckdb
 v2/backend/*.duckdb.wal
