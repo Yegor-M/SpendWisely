@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { MonthlyChart } from "@/components/dashboard/MonthlyChart";
@@ -27,7 +28,15 @@ export default async function Dashboard() {
           <h1 className="text-2xl font-bold">SpendWisely</h1>
           <p className="text-muted-foreground text-sm">Personal finance tracker</p>
         </div>
-        <UploadCsv />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/insights"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Insights →
+          </Link>
+          <UploadCsv />
+        </div>
       </div>
 
       {!hasSummary ? (

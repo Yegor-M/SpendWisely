@@ -271,6 +271,156 @@ def day_of_week_patterns(df: pd.DataFrame) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Spend velocity (current month projection)
+# ---------------------------------------------------------------------------
+def spend_velocity(df: pd.DataFrame) -> dict:
+    """How far into the month are we, and what's the EOM projection?"""
+    exp = _real_expenses(df)[df["currency"] == "PLN"].copy()
+    if exp.empty:
+        return {}
+
+    today = pd.Timestamp.today().normalize()
+    current_month = today.strftime("%Y-%m")
+
+    current = exp[exp["month"] == current_month]
+    prior = exp[exp["month"] != current_month]
+
+    if current.empty:
+        return {"current_month": current_month, "has_current_data": False}
+
+    days_elapsed = (today - today.replace(day=1)).days + 1
+    days_in_month = today.days_in_month
+    day_pct = days_elapsed / days_in_month
+
+    spent_so_far = float(current["abs_amount"].sum())
+    projected_eom = round(spent_so_far / day_pct, 2) if day_pct > 0 else 0.0
+
+    avg_prior = float(prior.groupby("month")["abs_amount"].sum().mean()) if not prior.empty else 0.0
+    vs_avg_pct = round((projected_eom - avg_prior) / avg_prior * 100, 1) if avg_prior > 0 else None
+
+    return {
+        "current_month":    current_month,
+        "has_current_data": True,
+        "spent_so_far":     round(spent_so_far, 2),
+        "projected_eom":    projected_eom,
+        "days_elapsed":     days_elapsed,
+        "days_in_month":    days_in_month,
+        "day_pct":          round(day_pct * 100, 1),
+        "avg_prior_months": round(avg_prior, 2),
+        "vs_avg_pct":       vs_avg_pct,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Category MoM deltas
+# ---------------------------------------------------------------------------
+def category_deltas(df: pd.DataFrame) -> list[dict]:
+    """For each category: last month spend, prior month spend, absolute and % delta."""
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    months = sorted(exp["month"].unique())
+    if len(months) < 2:
+        return []
+
+    last, prev = months[-1], months[-2]
+    last_data = exp[exp["month"] == last].groupby("category")["abs_amount"].sum()
+    prev_data = exp[exp["month"] == prev].groupby("category")["abs_amount"].sum()
+    all_cats = sorted(set(last_data.index) | set(prev_data.index))
+
+    records = []
+    for cat in all_cats:
+        l = float(last_data.get(cat, 0))
+        p = float(prev_data.get(cat, 0))
+        delta = l - p
+        delta_pct = round(delta / p * 100, 1) if p > 0 else None
+        records.append({
+            "category":   cat,
+            "last_month": round(l, 2),
+            "prev_month": round(p, 2),
+            "delta":      round(delta, 2),
+            "delta_pct":  delta_pct,
+            "last_month_label": last,
+            "prev_month_label": prev,
+        })
+
+    records.sort(key=lambda r: -abs(r["delta"]))
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Income sources
+# ---------------------------------------------------------------------------
+def income_sources(df: pd.DataFrame) -> list[dict]:
+    inc = _real_income(df)[df["currency"] == "PLN"].copy()
+    if inc.empty:
+        return []
+    total = float(inc["abs_amount"].sum())
+    out = (
+        inc.groupby("counterparty")["abs_amount"]
+        .agg(total_received="sum", tx_count="size")
+        .reset_index()
+        .sort_values("total_received", ascending=False)
+    )
+    out["share_pct"] = (out["total_received"] / total * 100).round(1)
+    out["avg_per_tx"] = (out["total_received"] / out["tx_count"]).round(2)
+    return out.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Business vs personal split
+# ---------------------------------------------------------------------------
+BUSINESS_CATEGORIES = {"Accounting", "Banking Fees"}
+
+
+def business_vs_personal(df: pd.DataFrame) -> dict:
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    if exp.empty:
+        return {}
+    total = float(exp["abs_amount"].sum())
+    biz = float(exp[exp["category"].isin(BUSINESS_CATEGORIES)]["abs_amount"].sum())
+    personal = total - biz
+    months = df[~df["is_internal"]]["month"].nunique() or 1
+    return {
+        "total_expenses":       round(total, 2),
+        "business_expenses":    round(biz, 2),
+        "personal_expenses":    round(personal, 2),
+        "business_pct":         round(biz / total * 100, 1) if total > 0 else 0.0,
+        "personal_pct":         round(personal / total * 100, 1) if total > 0 else 0.0,
+        "avg_monthly_business": round(biz / months, 2),
+        "avg_monthly_personal": round(personal / months, 2),
+        "business_categories":  sorted(BUSINESS_CATEGORIES),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Category trends (per-category monthly series for sparklines)
+# ---------------------------------------------------------------------------
+def category_trends(df: pd.DataFrame) -> list[dict]:
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    pivot = (
+        exp.pivot_table(index="month", columns="category", values="abs_amount",
+                        aggfunc="sum", fill_value=0)
+        .sort_index()
+    )
+    months = pivot.index.tolist()
+    records = []
+    for cat in pivot.columns:
+        vals = [round(float(v), 2) for v in pivot[cat]]
+        non_zero = [v for v in vals if v > 0]
+        if not non_zero:
+            continue
+        trend_dir = "up" if len(vals) >= 2 and vals[-1] > vals[-2] else "down" if len(vals) >= 2 and vals[-1] < vals[-2] else "flat"
+        records.append({
+            "category":  cat,
+            "months":    months,
+            "values":    vals,
+            "avg":       round(float(np.mean(non_zero)), 2),
+            "trend":     trend_dir,
+        })
+    records.sort(key=lambda r: -r["avg"])
+    return records
+
+
+# ---------------------------------------------------------------------------
 # Budget health
 # ---------------------------------------------------------------------------
 def budget_health(df: pd.DataFrame) -> dict:

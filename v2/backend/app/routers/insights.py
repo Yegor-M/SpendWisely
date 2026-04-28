@@ -60,3 +60,28 @@ def get_predict():
 @router.get("/dow")
 def get_dow():
     return svc.day_of_week_patterns(_load_df())
+
+
+@router.get("/velocity")
+def get_velocity():
+    return svc.spend_velocity(_load_df())
+
+
+@router.get("/deltas")
+def get_deltas():
+    return svc.category_deltas(_load_df())
+
+
+@router.get("/income-sources")
+def get_income_sources():
+    return svc.income_sources(_load_df())
+
+
+@router.get("/business-split")
+def get_business_split():
+    return svc.business_vs_personal(_load_df())
+
+
+@router.get("/category-trends")
+def get_category_trends():
+    return svc.category_trends(_load_df())
