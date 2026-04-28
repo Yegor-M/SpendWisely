@@ -24,6 +24,15 @@ v1/app/output/
 .idea/
 .vscode/
 
+# v2 runtime artifacts
+v2/backend/*.duckdb
+v2/backend/*.duckdb.wal
+v2/backend/category_rules.json
+v2/frontend/.next/
+v2/frontend/node_modules/
+
 # Secrets / local config
 *.env
 .env*
+!.env.example
+!.env.local
