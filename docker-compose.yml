@@ -1,0 +1,38 @@
+# Local development — hot reload on both services
+# Usage: docker compose up --build
+#
+# Backend source is mounted as a volume so uvicorn --reload picks up changes.
+# Frontend source is mounted so Next.js dev server HMR works.
+# DB is persisted in a named volume (survives restarts).
+
+services:
+  backend:
+    build:
+      context: ./v2/backend
+      target: dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./v2/backend:/app          # hot reload
+      - spendwisely_db:/data       # persist DuckDB file
+    environment:
+      DB_PATH: /data/spendwisely.duckdb
+    env_file:
+      - ./v2/backend/.env          # ANTHROPIC_API_KEY, OWNER_NAME
+
+  frontend:
+    build:
+      context: ./v2/frontend
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./v2/frontend:/app         # hot reload
+      - /app/node_modules          # keep container node_modules isolated
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
+volumes:
+  spendwisely_db:

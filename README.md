@@ -69,6 +69,33 @@ curl -X POST http://localhost:8000/api/v1/ingest \
   -F "use_claude=true"
 ```
 
+## Docker
+
+### Local development (hot reload)
+
+```bash
+cp v2/backend/.env.example v2/backend/.env
+# add ANTHROPIC_API_KEY to v2/backend/.env
+
+docker compose up --build
+# frontend → http://localhost:3000
+# API docs → http://localhost:8000/docs
+```
+
+Source files are mounted as volumes — changes to Python or TypeScript are picked up instantly without rebuilding.
+
+### Server deployment
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+# serves on port 80 via nginx
+# nginx routes /api/ → FastAPI, / → Next.js
+```
+
+TLS: drop `fullchain.pem` and `privkey.pem` into `docker/nginx/certs/` and uncomment the HTTPS block in `docker/nginx/nginx.conf`.
+
+The DuckDB file is persisted in a named Docker volume (`spendwisely_db`) and survives container restarts.
+
 ## Data format
 
 Pekao bank CSV exports (Menu → Historia → Eksportuj). The parser handles:

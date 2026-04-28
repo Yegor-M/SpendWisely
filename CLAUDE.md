@@ -8,11 +8,15 @@
 
 ## Key commands
 ```bash
-# Backend
+# Local (manual)
 cd v2/backend && uvicorn app.main:app --reload   # http://localhost:8000/docs
-
-# Frontend
 cd v2/frontend && npm run dev                    # http://localhost:3000
+
+# Docker dev (hot reload)
+docker compose up --build
+
+# Docker prod
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Legacy v1 pipeline (read-only reference)
 cd v1/app && python main.py ../../data/oct-march-all.csv
@@ -57,11 +61,11 @@ category_rules: id, category, pattern, fields[], priority, comment
 ```
 
 ## Next Objectives
+- [ ] Merge PR #1 (Docker)
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Predicted next month widget on dashboard
 - [ ] Category edit inline on transactions page
-- [ ] `/wrap` workflow setup (PROGRESS / DECISIONS updates)
 
 ## Do not touch without asking
 - `v2/backend/app/database.py` — schema changes need migration strategy
@@ -71,3 +75,4 @@ category_rules: id, category, pattern, fields[], priority, comment
 - See `DECISIONS.md` for why DuckDB over SQLite, 3-pass enrichment design
 - See `PROGRESS.md` for completed work and PR history
 - See `GOTCHAS.md` for Pekao CSV quirks and Recharts type issues
+- See `PULL_REQUEST_TEMPLATE.md` for PR standarts

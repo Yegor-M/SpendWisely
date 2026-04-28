@@ -24,3 +24,13 @@ SHA1 of `(booking_date + reference + amount + currency)` truncated to 16 hex cha
 Dashboard pages fetch data server-side via `api.*` calls at render time.
 **Why:** Simplest path to a working dashboard with no client-state management. No Redux, no SWR, no loading spinners on initial load.
 **Tradeoff:** `force-dynamic` on all pages means no static caching; fine for local dev, needs thought if ever deployed.
+
+## Multi-stage Dockerfiles with shared base (dev + prod targets)
+Single Dockerfile per service, `dev` and `prod` as named build targets.
+**Why:** Keeps dev and prod environments in lockstep — same base image, same dependency install layer. `docker compose` selects the right target via `build.target`.
+**Tradeoff:** `NEXT_PUBLIC_API_URL` is baked in at build time (Next.js limitation); prod builds hardcode `/api/v1` and rely on nginx to proxy correctly.
+
+## nginx as reverse proxy in production (single port, path-based routing)
+`/api/` → FastAPI, `/` → Next.js, all on port 80.
+**Why:** Avoids CORS entirely — browser sees one origin. Simpler than configuring CORS headers across environments. TLS terminates at nginx, not in app code.
+**Tradeoff:** Any path starting with `/api/` is reserved; can't use that prefix for frontend routes.
