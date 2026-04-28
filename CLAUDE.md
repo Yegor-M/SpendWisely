@@ -1,61 +1,73 @@
-# SpendWisely
+# SpendWisely — Claude context
 
-Personal finance tracker built on Polish bank CSV exports (Pekao bank). Goal: understand spending to the penny, with future Apple Wallet / cash payment integration.
+## Stack
+- **Backend** — Python 3.11, FastAPI, DuckDB (single-file), Pydantic v2
+- **Frontend** — Next.js 16, TypeScript, Tailwind, shadcn/ui, Recharts
+- **AI** — Claude API (`claude-sonnet-4-6`) for batch transaction categorisation
+- **Data** — Pekao bank CSV (semicolon-delimited, Polish locale, utf-8-sig)
+
+## Key commands
+```bash
+# Backend
+cd v2/backend && uvicorn app.main:app --reload   # http://localhost:8000/docs
+
+# Frontend
+cd v2/frontend && npm run dev                    # http://localhost:3000
+
+# Legacy v1 pipeline (read-only reference)
+cd v1/app && python main.py ../../data/oct-march-all.csv
+```
 
 ## Project structure
-
 ```
-data/               Raw bank exports
-  oct-march-all.csv   Primary source: Oct 2025 – Mar 2026 (1,114 rows, Pekao format)
-  dec-feb.csv         Subset export used during early dev
-  ex1.csv / ex2.csv   Identical duplicates of an earlier manual-category format (legacy)
-  MonthExpense.csv    Slightly different manual-category variant (legacy)
-
-v1/app/             Current Python pipeline
-  bank_parser.py      Parses Polish bank CSV → clean Parquet/CSV
-  bank_enricher.py    Regex-based auto-categorisation + terminal/Tkinter human review
-  bank_insights.py    Analytics: summaries, trends, anomalies, recurring, predictions
-  main.py             End-to-end pipeline CLI
-  my_rules.json       Persisted category rules (19 categories)
-  output/             enriched.csv, enriched.parquet, clean.csv, report.txt, dashboard.html
-```
-
-## Data format (Pekao bank)
-
-Semicolon-delimited CSV, Polish locale: dates `DD.MM.YYYY`, amounts `1 464,99` (space thousands, comma decimal), encoding `utf-8-sig`.
-
-Columns: `Data księgowania`, `Data waluty`, `Nadawca / Odbiorca`, `Adres nadawcy / odbiorcy`, `Rachunek źródłowy`, `Rachunek docelowy`, `Tytułem`, `Kwota operacji`, `Waluta`, `Numer referencyjny`, `Typ operacji`, `Kategoria`
-
-## Critical data quality issues (must fix before v2)
-
-1. **FX double-counting** — Currency exchanges (Wymiana walut USD→PLN) generate paired rows: one USD expense + one PLN income. These are the SAME transaction. 211 pairs = 422 rows inflating both income (70,989 PLN) and expense sides. Mark them as `INTERNAL_TRANSFER` and exclude from spend totals.
-
-2. **Blank counterparty (235 rows)** — Internal transfers and FX conversions have no counterparty. Parser should derive counterparty from `title` for these.
-
-3. **Uncategorized 36.7% by row, but mainly FX** — Once FX transfers are excluded, true uncategorized PLN expenses are ~13,467 PLN. Still needs work.
-
-4. **ex1.csv == ex2.csv** (exact byte-level duplicates) — delete one.
-
-5. **Bank-provided `Kategoria` column unused** — free Polish category signal being discarded.
-
-## Run pipeline
-
-```bash
-cd v1/app
-python main.py ../../data/oct-march-all.csv
-python main.py ../../data/oct-march-all.csv --review   # interactive categorisation
+v2/backend/app/
+  services/parser.py    CSV ingest — FX detection, counterparty derivation, hash dedup
+  services/enricher.py  3-pass categorisation: bank Kategoria → regex → Claude API
+  services/insights.py  Analytics — excludes is_internal rows (fixes FX double-count)
+  routers/              FastAPI routes: /ingest  /transactions  /insights/*  /categories
+  database.py           DuckDB init + schema (transactions, category_rules tables)
+v2/frontend/
+  app/page.tsx          Dashboard (summary, charts, recurring, top merchants)
+  app/transactions/     Transactions table page
+  components/dashboard/ SummaryCards, MonthlyChart, CategoryPie, TopMerchants, RecurringList
+  lib/api.ts            All API calls — single source of truth
+v1/                     Legacy pipeline — do not extend, reference only
+data/                   Gitignored — personal bank CSV exports
 ```
 
-## Key numbers (Oct 2025 – Mar 2026, 6 months)
+## Key files
+- `v2/backend/app/services/parser.py` — read before touching CSV ingest or FX logic
+- `v2/backend/app/services/enricher.py` — read before modifying category rules or Claude integration
+- `v2/backend/app/database.py` — schema lives here; migrations are manual SQL
 
-- Total income: 96,036 PLN | Total expenses: 92,948 PLN | Net: +3,088 PLN
-- Avg monthly spend: 15,491 PLN
-- Savings rate: 3.3% (critically low)
-- Largest categories: Uncategorized 35.9% → Accounting 17.5% → Rent 16.7% → Groceries 7.3%
-- 1,114 transactions, 203 unique counterparties, 19 categories
+## Conventions
+- Bank CSV dates: `DD.MM.YYYY`; amounts: `1 464,99` (space = thousands, comma = decimal)
+- All PLN amounts only in analytics — USD rows exist but are FX noise
+- `is_internal = True` excludes a row from every spend/income calculation
+- Use non-capturing groups `(?:...)` in regex rules (pandas `.str.contains` warns on capture groups)
+- Feature branches + PR for every task — never push directly to main
 
-## Roadmap
+## DB schema
+```
+transactions: id, booking_date, value_date, month, counterparty, counterparty_address,
+              title, amount, abs_amount, currency, direction, category, bank_category,
+              operation_type, source_account, target_account, reference, is_internal,
+              source_file, imported_at
+category_rules: id, category, pattern, fields[], priority, comment
+```
 
-- **Phase 1** — Data cleanup: fix FX double-counting, use bank Kategoria, get uncategorized <10%
-- **Phase 2** — v2 app: FastAPI backend + SQLite/DuckDB + Next.js dashboard + Claude API for categorisation
-- **Phase 3** — Mobile/cash: Apple Wallet export parsing, iOS Shortcut for cash entries
+## Next Objectives
+- [ ] Phase 3: Apple Wallet export parsing endpoint
+- [ ] Phase 3: Manual cash entry UI (quick-add modal)
+- [ ] Predicted next month widget on dashboard
+- [ ] Category edit inline on transactions page
+- [ ] `/wrap` workflow setup (PROGRESS / DECISIONS updates)
+
+## Do not touch without asking
+- `v2/backend/app/database.py` — schema changes need migration strategy
+- `v2/backend/app/services/parser.py` FX detection logic — easy to break income/expense totals
+
+## More context
+- See `DECISIONS.md` for why DuckDB over SQLite, 3-pass enrichment design
+- See `PROGRESS.md` for completed work and PR history
+- See `GOTCHAS.md` for Pekao CSV quirks and Recharts type issues
