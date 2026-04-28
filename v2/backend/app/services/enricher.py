@@ -2,20 +2,17 @@
 Three-pass enrichment pipeline:
   1. Bank Kategoria mapping  — covers ~70% of real transactions immediately
   2. Regex rules             — covers business-specific patterns
-  3. Claude API fallback     — categorises whatever remains (batched, cached)
+  3. LLM fallback            — Claude / OpenAI / Gemini for whatever remains
 """
 from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-
-from app.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -184,11 +181,12 @@ class BankEnricher:
                  n, (~df["is_internal"]).sum())
         return self
 
-    def apply_claude(self, api_key: str = "") -> "BankEnricher":
-        """Pass 3: Claude API for remaining unknowns (batched, with prompt caching)."""
-        key = api_key or settings.anthropic_api_key
-        if not key:
-            log.warning("No ANTHROPIC_API_KEY — skipping Claude categorisation")
+    def apply_llm(self, provider: str = "", model: str = "") -> "BankEnricher":
+        """Pass 3: LLM categorisation for remaining unknowns (Claude / OpenAI / Gemini)."""
+        from app.services.llm import get_provider
+
+        llm = get_provider(provider=provider, model=model)
+        if llm is None:
             return self
 
         todo = self.df[
@@ -198,26 +196,26 @@ class BankEnricher:
         ].copy()
 
         if todo.empty:
-            log.info("No uncategorized transactions for Claude")
+            log.info("No uncategorized transactions for LLM")
             return self
 
-        log.info("Sending %d transactions to Claude for categorisation", len(todo))
+        log.info("Sending %d transactions to LLM for categorisation", len(todo))
         categories = sorted({r.category for r in self.rules} | set(BANK_CATEGORY_MAP.values()))
-        suggestions = _claude_categorize(todo, categories, key)
+        suggestions = llm.categorize(todo, categories)
 
         for tx_id, cat in suggestions.items():
             if cat and cat != self.UNCATEGORIZED:
                 self.df.loc[self.df["id"] == tx_id, "category"] = cat
 
         applied = len([c for c in suggestions.values() if c and c != self.UNCATEGORIZED])
-        log.info("Claude categorised %d transactions", applied)
+        log.info("LLM categorised %d transactions", applied)
         return self
 
-    def run(self, use_claude: bool = True) -> pd.DataFrame:
+    def run(self, use_llm: bool = True, provider: str = "", model: str = "") -> pd.DataFrame:
         self.apply_bank_categories()
         self.apply_rules()
-        if use_claude:
-            self.apply_claude()
+        if use_llm:
+            self.apply_llm(provider=provider, model=model)
         return self.df
 
     def save_rules(self) -> None:
@@ -233,66 +231,3 @@ class BankEnricher:
             return [CategoryRule.from_dict(d) for d in json.load(f)]
 
 
-# ---------------------------------------------------------------------------
-# Claude API categorisation
-# ---------------------------------------------------------------------------
-_SYSTEM_PROMPT = """You are a financial transaction categoriser for a Polish personal finance app.
-
-Given a list of bank transactions, return ONLY a valid JSON object mapping each transaction ID to one category name from the provided list.
-
-Rules:
-- Pick the most specific matching category
-- Use context clues: merchant name, title, amount
-- For Polish merchants: Biedronka/Lidl/Żabka = Groceries; Wolt/Glovo = Food & Dining; ZTM/SkyCash = Transport
-- If truly ambiguous, prefer "Online Shopping" over "Uncategorized"
-- Return ONLY the JSON object — no markdown, no explanation"""
-
-
-def _claude_categorize(
-    df: pd.DataFrame,
-    categories: list[str],
-    api_key: str,
-    batch_size: int = 60,
-) -> dict[str, str]:
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=api_key)
-    results: dict[str, str] = {}
-    cat_str = ", ".join(sorted(categories))
-
-    for start in range(0, len(df), batch_size):
-        batch = df.iloc[start : start + batch_size]
-        lines = []
-        for _, row in batch.iterrows():
-            lines.append(
-                f"{row['id']}: {row.get('counterparty','')} | {row.get('title','')} "
-                f"| {row.get('abs_amount',0):.2f} {row.get('currency','PLN')} "
-                f"| bank_cat: {row.get('bank_category','')}"
-            )
-
-        try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2048,
-                system=[
-                    {
-                        "type": "text",
-                        "text": f"{_SYSTEM_PROMPT}\n\nAvailable categories: {cat_str}",
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                messages=[
-                    {"role": "user", "content": "Categorise:\n" + "\n".join(lines)}
-                ],
-            )
-            text = response.content[0].text.strip()
-            # Strip possible markdown fences
-            if text.startswith("```"):
-                text = re.sub(r"^```[a-z]*\n?", "", text)
-                text = re.sub(r"\n?```$", "", text)
-            batch_result = json.loads(text)
-            results.update(batch_result)
-        except Exception as e:
-            log.error("Claude batch %d failed: %s", start // batch_size, e)
-
-    return results
