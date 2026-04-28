@@ -157,7 +157,8 @@ class GeminiProvider(LLMProvider):
 
     def categorize_batch(self, batch: pd.DataFrame, categories: list[str]) -> dict[str, str]:
         response = self._model.generate_content(_build_user_message(batch, categories))
-        return _parse_json(response.text)
+        text = response.text  # raises if blocked; caught by LLMProvider.categorize
+        return _parse_json(text or "{}")
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +187,7 @@ def get_provider(provider: str = "", model: str = "") -> LLMProvider | None:
     cls, key_attr = entry
     api_key = getattr(settings, key_attr, "")
     if not api_key:
-        log.warning("LLM_PROVIDER=%s but %s is not set — skipping Claude categorisation", provider, key_attr.upper())
+        log.warning("LLM_PROVIDER=%s but %s is not set — skipping LLM categorisation", provider, key_attr.upper())
         return None
 
     log.info("Using LLM provider: %s (model=%s)", provider, model or f"{cls.__name__} default")
