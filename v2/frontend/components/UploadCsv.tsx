@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 type IngestResult = {
   source_file: string; total_rows: number; imported: number;
@@ -12,6 +13,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
   const [result, setResult] = useState<IngestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -29,6 +31,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
       onDone?.();
+      router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
