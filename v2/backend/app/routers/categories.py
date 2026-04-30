@@ -1,8 +1,11 @@
+import logging
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 from app.database import db
-from app.models import CategoryRule
-from app.services.enricher import BANK_CATEGORY_MAP
+from app.models import CategoryRule, SuggestItem
+from app.services.enricher import BANK_CATEGORY_MAP, DEFAULT_RULES
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
@@ -48,3 +51,36 @@ def delete_rule(rule_id: int):
 @router.get("/bank-map")
 def get_bank_map():
     return BANK_CATEGORY_MAP
+
+
+@router.post("/suggest")
+def suggest_categories(items: list[SuggestItem]):
+    """Run Haiku (or configured LLM) on representative transactions and return {id: category}."""
+    from app.services.llm import get_provider
+
+    if not items:
+        return {}
+
+    llm = get_provider(provider="claude", model="claude-haiku-4-5-20251001")
+    if llm is None:
+        llm = get_provider()
+    if llm is None:
+        return {}
+
+    with db() as conn:
+        db_cats = [r[0] for r in conn.execute(
+            "SELECT DISTINCT category FROM transactions WHERE category != 'Uncategorized' ORDER BY category"
+        ).fetchall()]
+
+    all_cats = sorted(
+        set(db_cats)
+        | set(BANK_CATEGORY_MAP.values())
+        | {r.category for r in DEFAULT_RULES}
+    )
+
+    df = pd.DataFrame([i.model_dump() for i in items])
+    try:
+        return llm.categorize(df, all_cats)
+    except Exception as e:
+        log.warning("LLM suggest failed: %s", e)
+        return {}

@@ -59,6 +59,22 @@ All real income arrives as USD salary converted to PLN via "Wymiana walut" FX tr
 **Tradeoff:** `_implied_fx_rate` is called once per endpoint (summary, monthly_trends, income_sources) — 3 redundant dataframe scans per dashboard load. Acceptable for dataset size; could be cached if performance becomes a concern.
 **Gotcha:** `_FALLBACK_RATE = 4.0` is used when no FX pairs exist in the dataset. If USD/PLN diverges significantly from 4.0 and the FX rows are missing, income will be wrong.
 
+## Post-import review instead of separate review page
+Uncategorized transactions are surfaced immediately after CSV upload in a modal, not on a dedicated `/review` route.
+**Why:** Import is the natural moment of attention — user just uploaded a file and is already looking at results. A separate page requires navigation and loses the import context (which transactions are new vs pre-existing). Grouping by counterparty means one classification decision covers N transactions.
+**Tradeoff:** If there are many uncategorized groups the modal can be tall; mitigated by `overflow-y-auto` scroll. A dedicated page would allow more complex filtering/sorting.
+
+## Dynamic rule creation from manual classification
+When a user assigns a category in the ImportReview modal and checks "save rule", a regex pattern is derived as `re.escape(counterparty.lower())` wrapped in a non-capturing group and saved to `category_rules` at priority 5. It is then applied retroactively to all existing uncategorized rows matching `LOWER(counterparty) LIKE '%cp%'`.
+**Why:** Turns one-off classification into persistent learning — the same merchant never needs manual review again. Priority 5 sits above default rules (0) but below hand-crafted high-priority ones (10+), so it won't override known patterns.
+**Tradeoff:** LIKE-based retroactive apply is fuzzy (substring match), not the same regex the enricher uses on future imports. Acceptable because counterparty names from Pekao are typically the full merchant name with no substring collisions.
+**Gotcha:** Auto-generated rules have `comment="auto:{counterparty}"` — filter on this to distinguish from hand-crafted rules when debugging or cleaning up.
+
+## Haiku for interactive suggestions, Sonnet for batch import
+`POST /categories/suggest` (called from the review modal) uses `claude-haiku-4-5-20251001`; the enricher's `apply_llm` defaults to `claude-sonnet-4-6`.
+**Why:** Suggestions in the review modal are interactive and latency-sensitive — user is waiting. Haiku responds ~5× faster and costs ~20× less per token. Sonnet is reserved for the bulk import pass where accuracy matters more than speed.
+**Tradeoff:** Haiku may produce slightly less accurate category assignments on ambiguous merchants. The review UI lets the user correct any mistakes before applying, so errors are caught before they land in the DB.
+
 ## DuckDB thread-safety — threading.Lock in _load_df()
 FastAPI sync route handlers run in a thread pool. The dashboard fires 5 simultaneous SSR requests via `Promise.allSettled`, resulting in 5 threads all calling `conn.execute()` on the same global `duckdb.DuckDBPyConnection`. DuckDB's Python connection object is not thread-safe for concurrent operations.
 **Why:** The dashboard went from 708ms to 5-minute hangs after adding concurrent SSR calls. All threads blocked on the shared connection. Serializing with `threading.Lock` + switching from `fetchall()` to `.df()` (native Arrow export) reduced concurrent load to 208ms.

@@ -1,7 +1,8 @@
+import re
 from typing import Optional
 from fastapi import APIRouter, Query, HTTPException
 from app.database import db
-from app.models import Transaction, TransactionPatch, ManualTransaction
+from app.models import Transaction, TransactionPatch, ManualTransaction, BulkCategorizeItem, BulkCategorizeResult
 import hashlib, datetime
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -64,6 +65,67 @@ def update_category(tx_id: str, patch: TransactionPatch):
     if not row:
         raise HTTPException(404, "Transaction not found")
     return _row_to_tx(row)
+
+
+@router.post("/bulk-categorize", response_model=BulkCategorizeResult)
+def bulk_categorize(items: list[BulkCategorizeItem]):
+    updated = 0
+    rules_created = 0
+    additionally_categorized = 0
+
+    with db() as conn:
+        for item in items:
+            if not item.category or item.category == "Uncategorized":
+                continue
+
+            if item.tx_ids:
+                placeholders = ",".join(["?"] * len(item.tx_ids))
+                conn.execute(
+                    f"UPDATE transactions SET category = ? WHERE id IN ({placeholders})",
+                    [item.category] + item.tx_ids,
+                )
+                updated += len(item.tx_ids)
+
+            if item.save_rule and item.counterparty:
+                cp_lower = item.counterparty.lower().strip()
+                pattern = r"(?:" + re.escape(cp_lower) + r")"
+                conn.execute(
+                    "INSERT INTO category_rules (id, category, pattern, fields, priority, comment) "
+                    "VALUES (nextval('category_rules_seq'), ?, ?, ?, ?, ?)",
+                    [item.category, pattern, ["counterparty", "title"], 5, f"auto:{item.counterparty}"],
+                )
+                rules_created += 1
+
+                like_pat = f"%{cp_lower}%"
+                if item.tx_ids:
+                    excl = ",".join(["?"] * len(item.tx_ids))
+                    before = conn.execute(
+                        f"SELECT COUNT(*) FROM transactions WHERE category = 'Uncategorized' "
+                        f"AND is_internal = FALSE AND id NOT IN ({excl}) "
+                        f"AND LOWER(counterparty) LIKE ?",
+                        item.tx_ids + [like_pat],
+                    ).fetchone()[0]
+                else:
+                    before = conn.execute(
+                        "SELECT COUNT(*) FROM transactions WHERE category = 'Uncategorized' "
+                        "AND is_internal = FALSE AND LOWER(counterparty) LIKE ?",
+                        [like_pat],
+                    ).fetchone()[0]
+
+                if before > 0:
+                    conn.execute(
+                        "UPDATE transactions SET category = ? "
+                        "WHERE category = 'Uncategorized' AND is_internal = FALSE "
+                        "AND LOWER(counterparty) LIKE ?",
+                        [item.category, like_pat],
+                    )
+                    additionally_categorized += int(before)
+
+    return BulkCategorizeResult(
+        updated=updated,
+        rules_created=rules_created,
+        additionally_categorized=additionally_categorized,
+    )
 
 
 @router.delete("", status_code=200)
