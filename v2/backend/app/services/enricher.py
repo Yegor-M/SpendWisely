@@ -76,6 +76,8 @@ class CategoryRule:
 
 
 DEFAULT_RULES: list[CategoryRule] = [
+    # Salary / income — highest priority so it's never misclassified
+    CategoryRule("Income",          r"payment from abroad|sepa credit transfer incoming",                fields=["operation_type"], priority=50),
     # Business / accounting
     CategoryRule("Accounting",      r"\b(?:wfirma|faktura|invoice|autopay|innovative|orange\.pl)\b",    priority=10),
     CategoryRule("Accounting",      r"\b(?:prokura|biuro rachunkowe|ksieg)\b",                          priority=10),

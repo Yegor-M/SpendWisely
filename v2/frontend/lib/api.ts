@@ -18,6 +18,7 @@ export type Summary = {
   transaction_count: number; expense_count: number; income_count: number;
   months_covered: number; unique_counterparties: number;
   largest_single_expense: number; largest_single_income: number;
+  usd_salary_total: number; usd_salary_pln_equiv: number; implied_fx_rate: number;
   budget_health_score: number; budget_health_label: string;
 };
 
@@ -78,6 +79,7 @@ export type CategoryDelta = {
 export type IncomeSource = {
   counterparty: string; total_received: number;
   tx_count: number; share_pct: number; avg_per_tx: number;
+  currency: string;
 };
 
 export type BusinessSplit = {

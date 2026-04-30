@@ -15,6 +15,17 @@ import pandas as pd
 from collections import defaultdict
 
 
+_FALLBACK_RATE = 4.0  # PLN per USD when no FX data available
+
+
+def _implied_fx_rate(df: pd.DataFrame) -> float:
+    """Derive PLN/USD rate from FX pairs already in the dataset."""
+    fx = df[df["title"].str.contains("wymiana walut", case=False, na=False)]
+    pln_in  = float(fx[(fx["currency"] == "PLN") & (fx["amount"] > 0)]["abs_amount"].sum())
+    usd_out = float(fx[(fx["currency"] == "USD") & (fx["amount"] < 0)]["abs_amount"].sum())
+    return round(pln_in / usd_out, 4) if usd_out > 0 else _FALLBACK_RATE
+
+
 def _real_expenses(df: pd.DataFrame) -> pd.DataFrame:
     return df[(df["direction"] == "expense") & (~df["is_internal"])].copy()
 
@@ -36,10 +47,15 @@ def summary(df: pd.DataFrame) -> dict:
     inc = _real_income(df)
     pln_exp = exp[exp["currency"] == "PLN"]
     pln_inc = inc[inc["currency"] == "PLN"]
+    usd_inc = inc[inc["currency"] == "USD"]
     months = df[~df["is_internal"]]["month"].nunique() or 1
 
-    total_exp = pln_exp["abs_amount"].sum()
-    total_inc = pln_inc["abs_amount"].sum()
+    rate = _implied_fx_rate(df)
+    usd_total_usd = float(usd_inc["abs_amount"].sum())
+    usd_as_pln    = round(usd_total_usd * rate, 2)
+
+    total_exp = float(pln_exp["abs_amount"].sum())
+    total_inc = float(pln_inc["abs_amount"].sum()) + usd_as_pln
     savings_rate = ((total_inc - total_exp) / total_inc * 100) if total_inc > 0 else 0.0
 
     return {
@@ -56,6 +72,9 @@ def summary(df: pd.DataFrame) -> dict:
         "unique_counterparties": exp["counterparty"].nunique(),
         "largest_single_expense":round(pln_exp["abs_amount"].max(), 2) if not pln_exp.empty else 0.0,
         "largest_single_income": round(pln_inc["abs_amount"].max(), 2) if not pln_inc.empty else 0.0,
+        "usd_salary_total":      round(usd_total_usd, 2),
+        "usd_salary_pln_equiv":  usd_as_pln,
+        "implied_fx_rate":       rate,
         **budget_health(df),
     }
 
@@ -64,15 +83,21 @@ def summary(df: pd.DataFrame) -> dict:
 # Monthly trends
 # ---------------------------------------------------------------------------
 def monthly_trends(df: pd.DataFrame) -> list[dict]:
-    exp = _real_expenses(df)[df["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
-    inc = _real_income(df)[df["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
-    months = sorted(set(exp.index) | set(inc.index))
+    rate = _implied_fx_rate(df)
+    _exp = _real_expenses(df)
+    _inc = _real_income(df)
+
+    pln_exp = _exp[_exp["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    pln_inc = _inc[_inc["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    usd_inc = (_inc[_inc["currency"] == "USD"].groupby("month")["abs_amount"].sum() * rate)
+
+    months = sorted(set(pln_exp.index) | set(pln_inc.index) | set(usd_inc.index))
 
     rows = []
     prev_exp = None
     for m in months:
-        e = float(exp.get(m, 0))
-        i = float(inc.get(m, 0))
+        e = float(pln_exp.get(m, 0))
+        i = float(pln_inc.get(m, 0)) + float(usd_inc.get(m, 0))
         s = i - e
         sr = round(s / i * 100, 1) if i > 0 else 0.0
         mom = round((e - prev_exp) / prev_exp * 100, 1) if prev_exp else None
@@ -352,14 +377,27 @@ def category_deltas(df: pd.DataFrame) -> list[dict]:
 # Income sources
 # ---------------------------------------------------------------------------
 def income_sources(df: pd.DataFrame) -> list[dict]:
-    _inc = _real_income(df)
-    inc = _inc[_inc["currency"] == "PLN"].copy()
+    inc = _real_income(df)
     if inc.empty:
         return []
-    total = float(inc["abs_amount"].sum())
+
+    rate = _implied_fx_rate(df)
+
+    # Convert everything to PLN equivalent for ranking
+    inc = inc.copy()
+    inc["pln_equiv"] = inc.apply(
+        lambda r: r["abs_amount"] * rate if r["currency"] == "USD" else r["abs_amount"],
+        axis=1,
+    )
+
+    total = float(inc["pln_equiv"].sum())
     out = (
-        inc.groupby("counterparty")["abs_amount"]
-        .agg(total_received="sum", tx_count="size")
+        inc.groupby("counterparty")
+        .agg(
+            total_received=("pln_equiv", "sum"),
+            tx_count=("pln_equiv", "size"),
+            currency=("currency", "first"),
+        )
         .reset_index()
         .sort_values("total_received", ascending=False)
     )

@@ -16,10 +16,15 @@ export function IncomeSourcesTable({ data }: { data: IncomeSource[] }) {
       <CardContent>
         <div className="space-y-3">
           {top.map((src) => (
-            <div key={src.counterparty}>
+            <div key={src.counterparty || "unknown"}>
               <div className="flex items-center justify-between text-sm mb-1">
-                <span className="font-medium truncate mr-2">{src.counterparty || "Unknown"}</span>
-                <div className="flex items-center gap-3 shrink-0 text-right">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium truncate">{src.counterparty || "Unknown"}</span>
+                  {src.currency === "USD" && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">USD</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 text-right ml-2">
                   <span className="text-muted-foreground text-xs">{src.share_pct}%</span>
                   <span className="font-semibold text-green-700">{fmt(src.total_received)} PLN</span>
                 </div>
