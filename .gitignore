@@ -39,3 +39,4 @@ v2/frontend/node_modules/
 .env*
 !.env.example
 !.env.local
+.claude/settings.local.json
