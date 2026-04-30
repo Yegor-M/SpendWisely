@@ -18,26 +18,32 @@ export default async function Dashboard() {
   ]);
 
   const hasSummary =
-    summary.status === "fulfilled" && (summary.value as { transaction_count: number })?.transaction_count > 0;
+    summary.status === "fulfilled" &&
+    (summary.value as { transaction_count: number })?.transaction_count > 0;
 
   return (
-    <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">SpendWisely</h1>
-          <p className="text-muted-foreground text-sm">Personal finance tracker</p>
-        </div>
-        <UploadCsv />
-      </div>
-
+    <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
       {!hasSummary ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-          <p className="text-lg">No data yet.</p>
-          <p className="text-sm mt-1">Upload a Pekao bank CSV to get started.</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold">No data yet</h2>
+            <p className="text-muted-foreground text-sm">Upload a Pekao bank CSV to get started.</p>
+          </div>
+          <UploadCsv />
         </div>
       ) : (
         <>
-          <SummaryCards data={(summary as { status: "fulfilled"; value: Awaited<ReturnType<typeof api.summary>> }).value} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+              <p className="text-sm text-muted-foreground">Your financial snapshot</p>
+            </div>
+            <UploadCsv />
+          </div>
+
+          {summary.status === "fulfilled" && (
+            <SummaryCards data={summary.value} />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {monthly.status === "fulfilled" && <MonthlyChart data={monthly.value} />}

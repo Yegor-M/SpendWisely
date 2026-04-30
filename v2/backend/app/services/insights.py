@@ -15,6 +15,17 @@ import pandas as pd
 from collections import defaultdict
 
 
+_FALLBACK_RATE = 4.0  # PLN per USD when no FX data available
+
+
+def _implied_fx_rate(df: pd.DataFrame) -> float:
+    """Derive PLN/USD rate from FX pairs already in the dataset."""
+    fx = df[df["title"].str.contains("wymiana walut", case=False, na=False)]
+    pln_in  = float(fx[(fx["currency"] == "PLN") & (fx["amount"] > 0)]["abs_amount"].sum())
+    usd_out = float(fx[(fx["currency"] == "USD") & (fx["amount"] < 0)]["abs_amount"].sum())
+    return round(pln_in / usd_out, 4) if usd_out > 0 else _FALLBACK_RATE
+
+
 def _real_expenses(df: pd.DataFrame) -> pd.DataFrame:
     return df[(df["direction"] == "expense") & (~df["is_internal"])].copy()
 
@@ -24,7 +35,8 @@ def _real_income(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _pln_expenses(df: pd.DataFrame) -> pd.DataFrame:
-    return _real_expenses(df)[df["currency"] == "PLN"]
+    exp = _real_expenses(df)
+    return exp[exp["currency"] == "PLN"]
 
 
 # ---------------------------------------------------------------------------
@@ -35,10 +47,15 @@ def summary(df: pd.DataFrame) -> dict:
     inc = _real_income(df)
     pln_exp = exp[exp["currency"] == "PLN"]
     pln_inc = inc[inc["currency"] == "PLN"]
+    usd_inc = inc[inc["currency"] == "USD"]
     months = df[~df["is_internal"]]["month"].nunique() or 1
 
-    total_exp = pln_exp["abs_amount"].sum()
-    total_inc = pln_inc["abs_amount"].sum()
+    rate = _implied_fx_rate(df)
+    usd_total_usd = float(usd_inc["abs_amount"].sum())
+    usd_as_pln    = round(usd_total_usd * rate, 2)
+
+    total_exp = float(pln_exp["abs_amount"].sum())
+    total_inc = float(pln_inc["abs_amount"].sum()) + usd_as_pln
     savings_rate = ((total_inc - total_exp) / total_inc * 100) if total_inc > 0 else 0.0
 
     return {
@@ -55,6 +72,9 @@ def summary(df: pd.DataFrame) -> dict:
         "unique_counterparties": exp["counterparty"].nunique(),
         "largest_single_expense":round(pln_exp["abs_amount"].max(), 2) if not pln_exp.empty else 0.0,
         "largest_single_income": round(pln_inc["abs_amount"].max(), 2) if not pln_inc.empty else 0.0,
+        "usd_salary_total":      round(usd_total_usd, 2),
+        "usd_salary_pln_equiv":  usd_as_pln,
+        "implied_fx_rate":       rate,
         **budget_health(df),
     }
 
@@ -63,15 +83,21 @@ def summary(df: pd.DataFrame) -> dict:
 # Monthly trends
 # ---------------------------------------------------------------------------
 def monthly_trends(df: pd.DataFrame) -> list[dict]:
-    exp = _real_expenses(df)[df["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
-    inc = _real_income(df)[df["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
-    months = sorted(set(exp.index) | set(inc.index))
+    rate = _implied_fx_rate(df)
+    _exp = _real_expenses(df)
+    _inc = _real_income(df)
+
+    pln_exp = _exp[_exp["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    pln_inc = _inc[_inc["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    usd_inc = (_inc[_inc["currency"] == "USD"].groupby("month")["abs_amount"].sum() * rate)
+
+    months = sorted(set(pln_exp.index) | set(pln_inc.index) | set(usd_inc.index))
 
     rows = []
     prev_exp = None
     for m in months:
-        e = float(exp.get(m, 0))
-        i = float(inc.get(m, 0))
+        e = float(pln_exp.get(m, 0))
+        i = float(pln_inc.get(m, 0)) + float(usd_inc.get(m, 0))
         s = i - e
         sr = round(s / i * 100, 1) if i > 0 else 0.0
         mom = round((e - prev_exp) / prev_exp * 100, 1) if prev_exp else None
@@ -268,6 +294,171 @@ def day_of_week_patterns(df: pd.DataFrame) -> list[dict]:
         .rename(columns={"dow": "day"})
     )
     return out.round(2).to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Spend velocity (current month projection)
+# ---------------------------------------------------------------------------
+def spend_velocity(df: pd.DataFrame) -> dict:
+    """How far into the month are we, and what's the EOM projection?"""
+    _exp = _real_expenses(df)
+    exp = _exp[_exp["currency"] == "PLN"].copy()
+    if exp.empty:
+        return {}
+
+    today = pd.Timestamp.today().normalize()
+    current_month = today.strftime("%Y-%m")
+
+    current = exp[exp["month"] == current_month]
+    prior = exp[exp["month"] != current_month]
+
+    if current.empty:
+        return {"current_month": current_month, "has_current_data": False}
+
+    days_elapsed = (today - today.replace(day=1)).days + 1
+    days_in_month = today.days_in_month
+    day_pct = days_elapsed / days_in_month
+
+    spent_so_far = float(current["abs_amount"].sum())
+    projected_eom = round(spent_so_far / day_pct, 2) if day_pct > 0 else 0.0
+
+    avg_prior = float(prior.groupby("month")["abs_amount"].sum().mean()) if not prior.empty else 0.0
+    vs_avg_pct = round((projected_eom - avg_prior) / avg_prior * 100, 1) if avg_prior > 0 else None
+
+    return {
+        "current_month":    current_month,
+        "has_current_data": True,
+        "spent_so_far":     round(spent_so_far, 2),
+        "projected_eom":    projected_eom,
+        "days_elapsed":     days_elapsed,
+        "days_in_month":    days_in_month,
+        "day_pct":          round(day_pct * 100, 1),
+        "avg_prior_months": round(avg_prior, 2),
+        "vs_avg_pct":       vs_avg_pct,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Category MoM deltas
+# ---------------------------------------------------------------------------
+def category_deltas(df: pd.DataFrame) -> list[dict]:
+    """For each category: last month spend, prior month spend, absolute and % delta."""
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    months = sorted(exp["month"].unique())
+    if len(months) < 2:
+        return []
+
+    last, prev = months[-1], months[-2]
+    last_data = exp[exp["month"] == last].groupby("category")["abs_amount"].sum()
+    prev_data = exp[exp["month"] == prev].groupby("category")["abs_amount"].sum()
+    all_cats = sorted(set(last_data.index) | set(prev_data.index))
+
+    records = []
+    for cat in all_cats:
+        l = float(last_data.get(cat, 0))
+        p = float(prev_data.get(cat, 0))
+        delta = l - p
+        delta_pct = round(delta / p * 100, 1) if p > 0 else None
+        records.append({
+            "category":   cat,
+            "last_month": round(l, 2),
+            "prev_month": round(p, 2),
+            "delta":      round(delta, 2),
+            "delta_pct":  delta_pct,
+            "last_month_label": last,
+            "prev_month_label": prev,
+        })
+
+    records.sort(key=lambda r: -abs(r["delta"]))
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Income sources
+# ---------------------------------------------------------------------------
+def income_sources(df: pd.DataFrame) -> list[dict]:
+    inc = _real_income(df)
+    if inc.empty:
+        return []
+
+    rate = _implied_fx_rate(df)
+
+    # Convert everything to PLN equivalent for ranking
+    inc = inc.copy()
+    inc["pln_equiv"] = inc.apply(
+        lambda r: r["abs_amount"] * rate if r["currency"] == "USD" else r["abs_amount"],
+        axis=1,
+    )
+
+    total = float(inc["pln_equiv"].sum())
+    out = (
+        inc.groupby("counterparty")
+        .agg(
+            total_received=("pln_equiv", "sum"),
+            tx_count=("pln_equiv", "size"),
+            currency=("currency", "first"),
+        )
+        .reset_index()
+        .sort_values("total_received", ascending=False)
+    )
+    out["share_pct"] = (out["total_received"] / total * 100).round(1)
+    out["avg_per_tx"] = (out["total_received"] / out["tx_count"]).round(2)
+    return out.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Business vs personal split
+# ---------------------------------------------------------------------------
+BUSINESS_CATEGORIES = {"Accounting", "Banking Fees"}
+
+
+def business_vs_personal(df: pd.DataFrame) -> dict:
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    if exp.empty:
+        return {}
+    total = float(exp["abs_amount"].sum())
+    biz = float(exp[exp["category"].isin(BUSINESS_CATEGORIES)]["abs_amount"].sum())
+    personal = total - biz
+    months = df[~df["is_internal"]]["month"].nunique() or 1
+    return {
+        "total_expenses":       round(total, 2),
+        "business_expenses":    round(biz, 2),
+        "personal_expenses":    round(personal, 2),
+        "business_pct":         round(biz / total * 100, 1) if total > 0 else 0.0,
+        "personal_pct":         round(personal / total * 100, 1) if total > 0 else 0.0,
+        "avg_monthly_business": round(biz / months, 2),
+        "avg_monthly_personal": round(personal / months, 2),
+        "business_categories":  sorted(BUSINESS_CATEGORIES),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Category trends (per-category monthly series for sparklines)
+# ---------------------------------------------------------------------------
+def category_trends(df: pd.DataFrame) -> list[dict]:
+    exp = _real_expenses(df)[df["currency"] == "PLN"]
+    pivot = (
+        exp.pivot_table(index="month", columns="category", values="abs_amount",
+                        aggfunc="sum", fill_value=0)
+        .sort_index()
+    )
+    months = pivot.index.tolist()
+    records = []
+    for cat in pivot.columns:
+        vals = [round(float(v), 2) for v in pivot[cat]]
+        non_zero = [v for v in vals if v > 0]
+        if not non_zero:
+            continue
+        trend_dir = "up" if len(vals) >= 2 and vals[-1] > vals[-2] else "down" if len(vals) >= 2 and vals[-1] < vals[-2] else "flat"
+        records.append({
+            "category":  cat,
+            "months":    months,
+            "values":    vals,
+            "avg":       round(float(np.mean(non_zero)), 2),
+            "trend":     trend_dir,
+        })
+    records.sort(key=lambda r: -r["avg"])
+    return records
 
 
 # ---------------------------------------------------------------------------

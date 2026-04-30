@@ -2,9 +2,10 @@
 
 ## What's Built
 - Bank CSV import with FX-pair detection and hash-based dedup
-- 3-pass enrichment: bank Kategoria map → regex rules → Claude API (95.7% coverage on new dataset)
-- REST API: ingest, transactions CRUD, insights (summary, monthly, categories, merchants, recurring, anomalies, predict, dow)
+- 3-pass enrichment: bank Kategoria map → regex rules → LLM fallback (Claude/OpenAI/Gemini)
+- REST API: ingest, transactions CRUD, insights (summary, monthly, categories, merchants, recurring, anomalies, predict, dow, velocity, deltas, income-sources, business-split, category-trends)
 - Dashboard: summary cards, monthly cash flow chart, category pie, top merchants, recurring subscriptions
+- Insights page: spend velocity, MoM category deltas, next-month forecast, anomalies, DOW chart, business/personal split, income sources, category trend sparklines
 - Transactions table page
 - Manual cash transaction endpoint
 - v1 legacy pipeline preserved for reference
@@ -32,9 +33,34 @@
 - `docker-compose.prod.yml` for server (nginx reverse proxy, standalone Next.js build)
 - `docker/nginx/nginx.conf` with HTTPS block ready to uncomment
 
+### PR #2 — feat/universal-llm → main (open)
+- `services/llm.py`: universal LLM provider ABC — ClaudeProvider (prompt caching), OpenAIProvider (json_object format), GeminiProvider (JSON MIME + null guard)
+- `services/enricher.py`: removed inline `_claude_categorize`, wired `apply_llm(provider, model)` and `run(use_llm=True, ...)`
+- `routers/ingest.py`: `use_llm`, `provider`, `model` query params (replaces `use_claude`)
+- `config.py`: `llm_provider`, `llm_model`, `openai_api_key`, `google_api_key` settings
+- `requirements.txt`: `openai==1.54.0`, `google-generativeai==0.8.3`
+- Bug fixed via /review: wrong log message in `get_provider`, Gemini null guard on safety-blocked responses
+
+### PR #3 — feat/insights → main (open)
+- `services/insights.py`: 5 new functions — `spend_velocity`, `category_deltas`, `income_sources`, `business_vs_personal`, `category_trends`
+- `routers/insights.py`: 5 new routes — `/velocity` `/deltas` `/income-sources` `/business-split` `/category-trends`
+- `lib/api.ts`: 7 new typed API calls + type definitions for all new shapes
+- `app/insights/page.tsx`: full insights page, 8 panels in responsive 2-col grid
+- `components/insights/`: SpendVelocityCard, CategoryDeltasTable, PredictionTable, AnomaliesPanel, DowChart, BusinessPersonalSplit, IncomeSourcesTable, CategoryTrendsTable
+- **USD salary income**: `_implied_fx_rate()` derives PLN/USD from paired FX rows; USD income rows converted and included in summary, monthly trends, income sources
+- **Full UI redesign**: warm off-white background, Geist Mono body font, deep emerald green palette (replaces orange), dark hero summary card, frosted-glass nav, rounded-2xl cards
+- **Loading skeletons**: `app/loading.tsx`, `app/transactions/loading.tsx`, `app/insights/loading.tsx` — animate-pulse skeletons for all three routes
+- **Docker SSR fix**: `API_URL=http://backend:8000/api/v1` added to docker-compose frontend env; `lib/api.ts` uses it for server-side fetches (was silently failing with `localhost`)
+- **CSV import refresh**: `UploadCsv` calls `router.refresh()` after successful upload so dashboard re-fetches without a full reload
+- **DuckDB concurrency fix**: `routers/insights.py` `_load_df()` now uses `threading.Lock` + `.df()` — 5 concurrent dashboard SSR calls were deadlocking the shared DuckDB connection (5min hang → 208ms)
+
 ## In Progress / Pending
 - PR #1 feat/docker — awaiting merge
+- PR #2 feat/universal-llm — awaiting merge
+- PR #3 feat/insights — awaiting merge
+- **`docker-compose.prod.yml` SSR bug**: needs `API_URL: http://backend:8000/api/v1` added to frontend service env (same fix applied to dev compose this session)
+- **Regex rules gap**: AUTOPAY (accounting/recurring bills), BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), AUTOBEMA (driving school), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) all land in "Bez kategorii" = 37% uncategorized by spend
+- **`income_sources` currency field**: uses `"first"` aggregation — fragile if counterparty has mixed USD/PLN rows
 - Phase 3: Apple Wallet export parsing
 - Phase 3: Manual cash entry UI on frontend
-- Next-month prediction widget on dashboard
 - Inline category editing on transactions page

@@ -2,17 +2,20 @@ from fastapi import APIRouter
 from app.database import db
 from app.services import insights as svc
 import pandas as pd
+import threading
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
+_df_lock = threading.Lock()
+
 
 def _load_df() -> pd.DataFrame:
-    with db() as conn:
-        rows = conn.execute("SELECT * FROM transactions").fetchall()
-        cols = [d[0] for d in conn.description]
-    if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows, columns=cols)
+    # DuckDB's global connection is not thread-safe; serialize reads.
+    with _df_lock:
+        with db() as conn:
+            df = conn.execute("SELECT * FROM transactions").df()
+    if df.empty:
+        return df
     df["booking_date"] = pd.to_datetime(df["booking_date"], errors="coerce")
     df["is_internal"] = df["is_internal"].astype(bool)
     df["abs_amount"] = df["abs_amount"].astype(float)
@@ -60,3 +63,28 @@ def get_predict():
 @router.get("/dow")
 def get_dow():
     return svc.day_of_week_patterns(_load_df())
+
+
+@router.get("/velocity")
+def get_velocity():
+    return svc.spend_velocity(_load_df())
+
+
+@router.get("/deltas")
+def get_deltas():
+    return svc.category_deltas(_load_df())
+
+
+@router.get("/income-sources")
+def get_income_sources():
+    return svc.income_sources(_load_df())
+
+
+@router.get("/business-split")
+def get_business_split():
+    return svc.business_vs_personal(_load_df())
+
+
+@router.get("/category-trends")
+def get_category_trends():
+    return svc.category_trends(_load_df())

@@ -1,4 +1,9 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Server components run inside Docker where localhost = this container, not backend.
+// API_URL (non-public) points to the Docker service name for SSR; NEXT_PUBLIC_API_URL for browser.
+const BASE =
+  (typeof window === "undefined" ? process.env.API_URL : undefined) ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000/api/v1";
 
 async function get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
   const url = new URL(BASE + path);
@@ -18,6 +23,7 @@ export type Summary = {
   transaction_count: number; expense_count: number; income_count: number;
   months_covered: number; unique_counterparties: number;
   largest_single_expense: number; largest_single_income: number;
+  usd_salary_total: number; usd_salary_pln_equiv: number; implied_fx_rate: number;
   budget_health_score: number; budget_health_label: string;
 };
 
@@ -55,14 +61,58 @@ export type DowPattern = {
   day: string; total: number; count: number; avg: number;
 };
 
+export type Anomaly = {
+  booking_date: string; counterparty: string; title: string;
+  abs_amount: number; category: string;
+  z_score: number | null; anomaly_type: string;
+};
+
+export type SpendVelocity = {
+  current_month: string; has_current_data: boolean;
+  spent_so_far: number; projected_eom: number;
+  days_elapsed: number; days_in_month: number; day_pct: number;
+  avg_prior_months: number; vs_avg_pct: number | null;
+};
+
+export type CategoryDelta = {
+  category: string;
+  last_month: number; prev_month: number;
+  delta: number; delta_pct: number | null;
+  last_month_label: string; prev_month_label: string;
+};
+
+export type IncomeSource = {
+  counterparty: string; total_received: number;
+  tx_count: number; share_pct: number; avg_per_tx: number;
+  currency: string;
+};
+
+export type BusinessSplit = {
+  total_expenses: number; business_expenses: number; personal_expenses: number;
+  business_pct: number; personal_pct: number;
+  avg_monthly_business: number; avg_monthly_personal: number;
+  business_categories: string[];
+};
+
+export type CategoryTrend = {
+  category: string; months: string[]; values: number[];
+  avg: number; trend: "up" | "down" | "flat";
+};
+
 export const api = {
-  summary:    ()      => get<Summary>("/insights/summary"),
-  monthly:    ()      => get<MonthlyTrend[]>("/insights/monthly"),
-  categories: ()      => get<CategoryBreakdown[]>("/insights/categories"),
-  merchants:  (n = 10)=> get<Merchant[]>("/insights/merchants", { n }),
-  recurring:  ()      => get<Recurring[]>("/insights/recurring"),
-  predict:    ()      => get<Prediction[]>("/insights/predict"),
-  dow:        ()      => get<DowPattern[]>("/insights/dow"),
+  summary:         ()      => get<Summary>("/insights/summary"),
+  monthly:         ()      => get<MonthlyTrend[]>("/insights/monthly"),
+  categories:      ()      => get<CategoryBreakdown[]>("/insights/categories"),
+  merchants:       (n = 10)=> get<Merchant[]>("/insights/merchants", { n }),
+  recurring:       ()      => get<Recurring[]>("/insights/recurring"),
+  predict:         ()      => get<Prediction[]>("/insights/predict"),
+  dow:             ()      => get<DowPattern[]>("/insights/dow"),
+  anomalies:       ()      => get<Anomaly[]>("/insights/anomalies"),
+  velocity:        ()      => get<SpendVelocity>("/insights/velocity"),
+  deltas:          ()      => get<CategoryDelta[]>("/insights/deltas"),
+  incomeSources:   ()      => get<IncomeSource[]>("/insights/income-sources"),
+  businessSplit:   ()      => get<BusinessSplit>("/insights/business-split"),
+  categoryTrends:  ()      => get<CategoryTrend[]>("/insights/category-trends"),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
 };

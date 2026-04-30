@@ -1,4 +1,4 @@
-## End of session — update docs
+## End of session — update docs and push/make PR if required/re
 
 ### CLAUDE.md
 - Check off anything completed; update what's built and next objectives
