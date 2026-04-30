@@ -99,6 +99,47 @@ export type CategoryTrend = {
   avg: number; trend: "up" | "down" | "flat";
 };
 
+export type UncategorizedGroup = {
+  counterparty: string;
+  sample_title: string;
+  count: number;
+  total_amount: number;
+  tx_ids: string[];
+};
+
+export type IngestResult = {
+  source_file: string;
+  total_rows: number;
+  imported: number;
+  duplicates_skipped: number;
+  internal_marked: number;
+  categorized: number;
+  uncategorized: number;
+  uncategorized_groups: UncategorizedGroup[];
+};
+
+export type BulkCategorizeItem = {
+  tx_ids: string[];
+  category: string;
+  save_rule: boolean;
+  counterparty: string;
+};
+
+export type BulkCategorizeResult = {
+  updated: number;
+  rules_created: number;
+  additionally_categorized: number;
+};
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(
+    (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
+  return res.json();
+}
+
 async function del<T>(path: string): Promise<T> {
   const res = await fetch(
     (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
@@ -125,4 +166,9 @@ export const api = {
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
+  listCategories: () => get<string[]>("/categories"),
+  suggestCategories: (items: Array<{ id: string; counterparty: string; title: string; abs_amount: number }>) =>
+    post<Record<string, string>>("/categories/suggest", items),
+  bulkCategorize: (items: BulkCategorizeItem[]) =>
+    post<BulkCategorizeResult>("/transactions/bulk-categorize", items),
 };
