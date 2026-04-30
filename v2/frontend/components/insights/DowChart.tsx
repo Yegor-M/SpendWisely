@@ -17,37 +17,58 @@ export function DowChart({ data }: { data: DowPattern[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Spending by Day of Week</CardTitle>
+        <CardTitle>Spending by Day of Week</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="day" tickFormatter={(d) => SHORT[d] ?? d} tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1).toFixed(0)}`} />
-            <Tooltip
-              formatter={(v, name) => [
-                new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Number(v)) + " PLN",
-                name === "avg" ? "Avg per tx" : name,
-              ]}
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="none" vertical={false} stroke="oklch(0.91 0.006 75)" strokeWidth={1} />
+            <XAxis
+              dataKey="day"
+              tickFormatter={(d) => SHORT[d] ?? d}
+              tick={{ fontSize: 11, fill: "oklch(0.50 0.015 255)" }}
+              axisLine={false}
+              tickLine={false}
             />
-            <Bar dataKey="avg" name="avg" radius={[3, 3, 0, 0]}>
+            <YAxis
+              tick={{ fontSize: 11, fill: "oklch(0.50 0.015 255)" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `${(v / 1).toFixed(0)}`}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "oklch(1 0 0)",
+                border: "1px solid oklch(0.908 0.006 75)",
+                borderRadius: "12px",
+                boxShadow: "0 4px 16px oklch(0 0 0 / 0.08)",
+                fontSize: 12,
+              }}
+              formatter={(v) => [
+                new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Number(v)) + " PLN",
+                "Avg per tx",
+              ]}
+              cursor={{ fill: "oklch(0.96 0.004 75)" }}
+            />
+            <Bar dataKey="avg" radius={[4, 4, 0, 0]} maxBarSize={36}>
               {data.map((d) => (
                 <Cell
                   key={d.day}
                   fill={
                     WEEKEND.includes(d.day)
-                      ? "#f97316"
+                      ? "oklch(0.62 0.155 38)"
                       : d.avg === maxAvg
-                      ? "#ef4444"
-                      : "#6366f1"
+                      ? "oklch(0.56 0.200 25)"
+                      : "oklch(0.55 0.195 265)"
                   }
                 />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-        <p className="text-xs text-muted-foreground text-center mt-1">Avg spend per transaction</p>
+        <p className="text-[11px] text-muted-foreground text-center mt-2">
+          Avg spend per transaction · <span style={{ color: "oklch(0.62 0.155 38)" }}>■</span> weekend · <span style={{ color: "oklch(0.56 0.200 25)" }}>■</span> peak
+        </p>
       </CardContent>
     </Card>
   );

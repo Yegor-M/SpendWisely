@@ -1,5 +1,4 @@
 import { api } from "@/lib/api";
-import Link from "next/link";
 import { SpendVelocityCard } from "@/components/insights/SpendVelocityCard";
 import { CategoryDeltasTable } from "@/components/insights/CategoryDeltasTable";
 import { PredictionTable } from "@/components/insights/PredictionTable";
@@ -13,38 +12,20 @@ export const dynamic = "force-dynamic";
 
 export default async function InsightsPage() {
   const [
-    velocity,
-    deltas,
-    predict,
-    anomalies,
-    dow,
-    businessSplit,
-    incomeSources,
-    categoryTrends,
+    velocity, deltas, predict, anomalies,
+    dow, businessSplit, incomeSources, categoryTrends,
   ] = await Promise.allSettled([
-    api.velocity(),
-    api.deltas(),
-    api.predict(),
-    api.anomalies(),
-    api.dow(),
-    api.businessSplit(),
-    api.incomeSources(),
-    api.categoryTrends(),
+    api.velocity(), api.deltas(), api.predict(), api.anomalies(),
+    api.dow(), api.businessSplit(), api.incomeSources(), api.categoryTrends(),
   ]);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Insights</h1>
-          <p className="text-muted-foreground text-sm">Deep analytics and predictions</p>
-        </div>
-        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-          ← Dashboard
-        </Link>
+    <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Insights</h1>
+        <p className="text-sm text-muted-foreground">Deep analytics and predictions</p>
       </div>
 
-      {/* This Month + Deltas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {velocity.status === "fulfilled" && Object.keys(velocity.value).length > 0 && (
           <SpendVelocityCard data={velocity.value} />
@@ -54,7 +35,6 @@ export default async function InsightsPage() {
         )}
       </div>
 
-      {/* Predictions + Anomalies */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {predict.status === "fulfilled" && predict.value.length > 0 && (
           <PredictionTable data={predict.value} />
@@ -64,7 +44,6 @@ export default async function InsightsPage() {
         )}
       </div>
 
-      {/* Patterns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {dow.status === "fulfilled" && dow.value.length > 0 && (
           <DowChart data={dow.value} />
@@ -74,7 +53,6 @@ export default async function InsightsPage() {
         )}
       </div>
 
-      {/* Income + Category Trends */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {incomeSources.status === "fulfilled" && incomeSources.value.length > 0 && (
           <IncomeSourcesTable data={incomeSources.value} />

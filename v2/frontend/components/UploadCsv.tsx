@@ -1,7 +1,5 @@
 "use client";
 import { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 
 type IngestResult = {
   source_file: string; total_rows: number; imported: number;
@@ -25,12 +23,11 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_claude=true`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_llm=true`,
         { method: "POST", body: fd }
       );
       if (!res.ok) throw new Error(await res.text());
-      const data: IngestResult = await res.json();
-      setResult(data);
+      setResult(await res.json());
       onDone?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -41,33 +38,25 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <Button
-          onClick={() => inputRef.current?.click()}
-          disabled={loading}
-          variant="outline"
-        >
-          {loading ? "Importing…" : "Import Bank CSV"}
-        </Button>
-        <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleUpload} />
-        {error && <p className="text-sm text-red-500">{error}</p>}
-      </div>
+    <div className="flex flex-col items-end gap-2">
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={loading}
+        className="h-8 px-3.5 rounded-lg text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 transition-colors"
+      >
+        {loading ? "Importing…" : "Import CSV"}
+      </button>
+      <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleUpload} />
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
 
       {result && (
-        <Card className="w-fit">
-          <CardContent className="pt-4 flex gap-6 text-sm">
-            <span className="text-green-600 font-medium">+{result.imported} imported</span>
-            <span>{result.internal_marked} internal (FX/transfers excluded)</span>
-            <span>{result.categorized} categorised</span>
-            {result.uncategorized > 0 && (
-              <span className="text-orange-500">{result.uncategorized} uncategorised</span>
-            )}
-            {result.duplicates_skipped > 0 && (
-              <span className="text-muted-foreground">{result.duplicates_skipped} skipped (dup)</span>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex gap-3 text-[12px] text-muted-foreground">
+          <span className="text-emerald-600 font-medium">+{result.imported} rows</span>
+          {result.categorized > 0 && <span>{result.categorized} categorised</span>}
+          {result.uncategorized > 0 && <span className="text-amber-600">{result.uncategorized} uncategorised</span>}
+          {result.duplicates_skipped > 0 && <span>{result.duplicates_skipped} skipped</span>}
+        </div>
       )}
     </div>
   );

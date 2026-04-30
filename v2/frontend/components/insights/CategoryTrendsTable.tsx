@@ -5,67 +5,59 @@ import type { CategoryTrend } from "@/lib/api";
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
 
+const trendColor = { up: "oklch(0.56 0.200 25)", down: "oklch(0.64 0.170 145)", flat: "oklch(0.50 0.015 255)" };
+const trendLabel = { up: "▲", down: "▼", flat: "→" };
+
 function Sparkline({ values }: { values: number[] }) {
   if (values.length < 2) return null;
   const max = Math.max(...values, 1);
-  const w = 60;
-  const h = 24;
+  const w = 56;
+  const h = 22;
   const pts = values.map((v, i) => {
     const x = (i / (values.length - 1)) * w;
     const y = h - (v / max) * h;
-    return `${x},${y}`;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
 
   return (
-    <svg width={w} height={h} className="inline-block">
+    <svg width={w} height={h}>
       <polyline
         points={pts.join(" ")}
         fill="none"
-        stroke="currentColor"
         strokeWidth="1.5"
-        className="text-indigo-500"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        stroke="oklch(0.62 0.155 38)"
       />
     </svg>
   );
 }
 
 export function CategoryTrendsTable({ data }: { data: CategoryTrend[] }) {
-  const top = data.slice(0, 15);
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Category Trends</CardTitle>
+        <CardTitle>Category Trends</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-muted-foreground text-xs">
-                <th className="text-left pb-2">Category</th>
-                <th className="text-right pb-2">Avg/mo</th>
-                <th className="text-center pb-2">Trend</th>
-                <th className="text-right pb-2">Direction</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {top.map((row) => (
-                <tr key={row.category}>
-                  <td className="py-1.5 font-medium">{row.category}</td>
-                  <td className="py-1.5 text-right">{fmt(row.avg)}</td>
-                  <td className="py-1.5 text-center">
-                    <Sparkline values={row.values} />
-                  </td>
-                  <td className={`py-1.5 text-right text-xs font-semibold ${
-                    row.trend === "up" ? "text-red-500" :
-                    row.trend === "down" ? "text-green-500" : "text-muted-foreground"
-                  }`}>
-                    {row.trend === "up" ? "▲ Up" : row.trend === "down" ? "▼ Down" : "→ Flat"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="divide-y divide-border/50">
+          {data.slice(0, 14).map((row) => (
+            <div key={row.category} className="flex items-center py-2.5 first:pt-0 last:pb-0 gap-3">
+              <span className="flex-1 text-[13px] font-medium truncate">{row.category}</span>
+              <span className="text-[12px] text-muted-foreground tabular-nums w-20 text-right">
+                avg {fmt(row.avg)}
+              </span>
+              <div className="w-14 flex justify-center">
+                <Sparkline values={row.values} />
+              </div>
+              <span
+                className="text-[12px] font-semibold w-8 text-right"
+                style={{ color: trendColor[row.trend] }}
+              >
+                {trendLabel[row.trend]}
+              </span>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
