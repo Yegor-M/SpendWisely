@@ -2,17 +2,20 @@ from fastapi import APIRouter
 from app.database import db
 from app.services import insights as svc
 import pandas as pd
+import threading
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
+_df_lock = threading.Lock()
+
 
 def _load_df() -> pd.DataFrame:
-    with db() as conn:
-        rows = conn.execute("SELECT * FROM transactions").fetchall()
-        cols = [d[0] for d in conn.description]
-    if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows, columns=cols)
+    # DuckDB's global connection is not thread-safe; serialize reads.
+    with _df_lock:
+        with db() as conn:
+            df = conn.execute("SELECT * FROM transactions").df()
+    if df.empty:
+        return df
     df["booking_date"] = pd.to_datetime(df["booking_date"], errors="coerce")
     df["is_internal"] = df["is_internal"].astype(bool)
     df["abs_amount"] = df["abs_amount"].astype(float)
