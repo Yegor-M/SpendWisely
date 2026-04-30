@@ -88,3 +88,13 @@ def get_business_split():
 @router.get("/category-trends")
 def get_category_trends():
     return svc.category_trends(_load_df())
+
+
+@router.get("/top-transactions")
+def get_top_transactions(n: int = 10):
+    return svc.top_transactions(_load_df(), n=n)
+
+
+@router.get("/recurring-summary")
+def get_recurring_summary():
+    return svc.recurring_summary(_load_df())

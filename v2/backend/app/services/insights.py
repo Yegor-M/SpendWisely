@@ -462,6 +462,48 @@ def category_trends(df: pd.DataFrame) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Top individual transactions (biggest single expenses)
+# ---------------------------------------------------------------------------
+def top_transactions(df: pd.DataFrame, n: int = 10) -> list[dict]:
+    exp = _real_expenses(df)
+    exp = exp[exp["currency"] == "PLN"].copy()
+    if exp.empty:
+        return []
+    top = exp.nlargest(n, "abs_amount")[
+        ["booking_date", "counterparty", "title", "abs_amount", "category", "month"]
+    ].copy()
+    top["booking_date"] = top["booking_date"].dt.strftime("%Y-%m-%d")
+    return top.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Recurring cost summary (total monthly committed spend)
+# ---------------------------------------------------------------------------
+def recurring_summary(df: pd.DataFrame) -> dict:
+    items = detect_recurring(df)
+    monthly_items = [r for r in items if r["period"] == "Monthly"]
+    biweekly_items = [r for r in items if r["period"] == "Bi-weekly"]
+
+    # Normalize to monthly equivalent
+    monthly_total = sum(r["amount"] for r in monthly_items)
+    biweekly_total = sum(r["amount"] * 2 for r in biweekly_items)  # ~2x per month
+    total = round(monthly_total + biweekly_total, 2)
+
+    # All items sorted by amount desc (with monthly-equivalent amount)
+    all_items = []
+    for r in items:
+        monthly_equiv = r["amount"] * 2 if r["period"] == "Bi-weekly" else r["amount"]
+        all_items.append({**r, "monthly_equiv": round(monthly_equiv, 2)})
+    all_items.sort(key=lambda x: -x["monthly_equiv"])
+
+    return {
+        "total_monthly_recurring": total,
+        "item_count": len(items),
+        "items": all_items,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Budget health
 # ---------------------------------------------------------------------------
 def budget_health(df: pd.DataFrame) -> dict:

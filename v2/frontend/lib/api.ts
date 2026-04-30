@@ -99,6 +99,17 @@ export type CategoryTrend = {
   avg: number; trend: "up" | "down" | "flat";
 };
 
+export type TopTransaction = {
+  booking_date: string; counterparty: string; title: string;
+  abs_amount: number; category: string; month: string;
+};
+
+export type RecurringSummary = {
+  total_monthly_recurring: number;
+  item_count: number;
+  items: Array<Recurring & { monthly_equiv: number }>;
+};
+
 export type UncategorizedGroup = {
   counterparty: string;
   sample_title: string;
@@ -163,6 +174,8 @@ export const api = {
   incomeSources:   ()      => get<IncomeSource[]>("/insights/income-sources"),
   businessSplit:   ()      => get<BusinessSplit>("/insights/business-split"),
   categoryTrends:  ()      => get<CategoryTrend[]>("/insights/category-trends"),
+  topTransactions: (n = 10)=> get<TopTransaction[]>("/insights/top-transactions", { n }),
+  recurringSummary:()      => get<RecurringSummary>("/insights/recurring-summary"),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
