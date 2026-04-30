@@ -18,7 +18,18 @@
       "Bash(npm --version)",
       "Bash(npx --version)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(gh pr *)",
+      "Bash(git restore *)",
+      "Bash(git pull *)",
+      "Bash(npx tsc *)",
+      "Bash(/Users/yegormakarenko/Projects/SpendWisely/v2/backend/.venv/bin/python3 *)",
+      "Bash(/Users/yegormakarenko/Projects/SpendWisely/v2/backend/.venv/bin/python -m py_compile v2/backend/app/services/insights.py)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(f'{k}: {v}' for k,v in {**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}.items\\(\\)\\)\\)\")",
+      "Bash(curl -s \"http://localhost:3000/transactions\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(docker compose up *)",
+      "Bash(docker exec *)",
+      "Bash(curl -s \"http://localhost:3000/transactions\")"
     ]
   }
 }

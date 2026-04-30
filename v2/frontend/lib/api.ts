@@ -1,4 +1,9 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Server components run inside Docker where localhost = this container, not backend.
+// API_URL (non-public) points to the Docker service name for SSR; NEXT_PUBLIC_API_URL for browser.
+const BASE =
+  (typeof window === "undefined" ? process.env.API_URL : undefined) ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000/api/v1";
 
 async function get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
   const url = new URL(BASE + path);
