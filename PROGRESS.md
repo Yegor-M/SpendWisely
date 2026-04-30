@@ -47,15 +47,18 @@
 - `lib/api.ts`: 7 new typed API calls + type definitions for all new shapes
 - `app/insights/page.tsx`: full insights page, 8 panels in responsive 2-col grid
 - `components/insights/`: SpendVelocityCard, CategoryDeltasTable, PredictionTable, AnomaliesPanel, DowChart, BusinessPersonalSplit, IncomeSourcesTable, CategoryTrendsTable
-- Dashboard: "Insights →" nav link
-- Data audit performed: income tracking is broken (see pending items)
+- **USD salary income**: `_implied_fx_rate()` derives PLN/USD from paired FX rows; USD income rows converted and included in summary, monthly trends, income sources
+- **Full UI redesign**: warm off-white background, Geist Mono body font, deep emerald green palette (replaces orange), dark hero summary card, frosted-glass nav, rounded-2xl cards
+- **Loading skeletons**: `app/transactions/loading.tsx` and `app/insights/loading.tsx` — animate-pulse skeletons matching page layout
+- **Docker SSR fix**: `API_URL=http://backend:8000/api/v1` added to docker-compose frontend env; `lib/api.ts` uses it for server-side fetches (was silently failing with `localhost` which resolves to the frontend container)
 
 ## In Progress / Pending
 - PR #1 feat/docker — awaiting merge
 - PR #2 feat/universal-llm — awaiting merge
 - PR #3 feat/insights — awaiting merge
-- **Income tracking fix**: FX PLN-side ("Wymiana walut") should be treated as effective income, not internal — currently savings rate = 0 (wrong)
+- **`docker-compose.prod.yml` SSR bug**: needs `API_URL: http://backend:8000/api/v1` added to frontend service env (same fix applied to dev compose this session)
 - **Regex rules gap**: AUTOPAY (accounting/recurring bills), BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), AUTOBEMA (driving school), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) all land in "Bez kategorii" = 37% uncategorized by spend
+- **`income_sources` currency field**: uses `"first"` aggregation — fragile if counterparty has mixed USD/PLN rows
 - Phase 3: Apple Wallet export parsing
 - Phase 3: Manual cash entry UI on frontend
 - Inline category editing on transactions page

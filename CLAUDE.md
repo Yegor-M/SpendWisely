@@ -32,9 +32,9 @@ v2/backend/app/
   routers/              FastAPI routes: /ingest  /transactions  /insights/*  /categories
   database.py           DuckDB init + schema (transactions, category_rules tables)
 v2/frontend/
-  app/page.tsx          Dashboard (summary, charts, recurring, top merchants) + "Insights →" link
-  app/insights/         Full insights page — velocity, deltas, predictions, anomalies, patterns
-  app/transactions/     Transactions table page
+  app/page.tsx          Dashboard (summary, charts, recurring, top merchants)
+  app/insights/         Full insights page + loading.tsx skeleton
+  app/transactions/     Transactions table page + loading.tsx skeleton
   components/dashboard/ SummaryCards, MonthlyChart, CategoryPie, TopMerchants, RecurringList
   components/insights/  8 insight panels (SpendVelocity, Deltas, Prediction, Anomalies, DOW, BizSplit, Income, Trends)
   lib/api.ts            All API calls — single source of truth
@@ -50,12 +50,13 @@ data/                   Gitignored — personal bank CSV exports
 
 ## Conventions
 - Bank CSV dates: `DD.MM.YYYY`; amounts: `1 464,99` (space = thousands, comma = decimal)
-- All PLN amounts only in analytics — USD rows exist but are FX noise
+- PLN expenses only in spend analytics; USD income is converted via `_implied_fx_rate()` before inclusion
 - `is_internal = True` excludes a row from every spend/income calculation
 - Use non-capturing groups `(?:...)` in regex rules (pandas `.str.contains` warns on capture groups)
 - Feature branches + PR for every task — never push directly to main
 - FX "Wymiana walut - sprzedaż USD za PLN" = only PLN side appears in this file (USD side is a separate Pekao account)
-- Real income in this PLN account is near-zero; all cash comes via FX conversions from USD salary account
+- USD salary arrives as "PAYMENT FROM ABROAD" → categorised as Income; `_implied_fx_rate()` derives PLN/USD from paired FX rows
+- Docker SSR: server components use `API_URL=http://backend:8000/api/v1` (Docker service name); `NEXT_PUBLIC_API_URL` is for browser-side only. Both must be set in compose env.
 
 ## DB schema
 ```
@@ -69,8 +70,8 @@ category_rules: id, category, pattern, fields[], priority, comment
 ## Next Objectives
 - [ ] Merge PR #1 (Docker)
 - [ ] Merge PR #2 (Universal LLM)
-- [ ] Merge PR #3 (Insights page)
-- [ ] Fix income tracking: treat FX PLN-side as effective income OR ingest USD account CSV
+- [ ] Merge PR #3 (Insights page — includes redesign, USD income, loading skeletons, SSR fix)
+- [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service (same SSR bug as dev compose had)
 - [ ] Expand regex rules for uncategorized merchants: AUTOPAY, BINANCE, personal transfers (MASHA etc), AUTOBEMA, ADMINISTRATRACJA
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)

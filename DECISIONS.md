@@ -46,3 +46,15 @@ The Pekao PLN account records zero real income — salary arrives in a separate 
 `/api/` → FastAPI, `/` → Next.js, all on port 80.
 **Why:** Avoids CORS entirely — browser sees one origin. Simpler than configuring CORS headers across environments. TLS terminates at nginx, not in app code.
 **Tradeoff:** Any path starting with `/api/` is reserved; can't use that prefix for frontend routes.
+
+## Docker SSR routing — two API URL env vars
+Next.js server components make fetch calls inside the Docker container, where `localhost` resolves to the frontend container, not the backend.
+**Why:** `NEXT_PUBLIC_API_URL=http://localhost:8000` is correct for browser fetch (port 8000 is exposed to the host), but server-side code runs inside Docker where the backend is reachable only via the Docker service name `backend`. Adding a non-public `API_URL=http://backend:8000/api/v1` and selecting it for SSR (`typeof window === "undefined"`) fixes the silent empty-data bug.
+**Tradeoff:** Two env vars to keep in sync. `docker compose restart` does not apply new env vars — must use `docker compose up -d` to recreate the container.
+**Gotcha:** `docker-compose.prod.yml` still has the same bug and needs the same `API_URL` fix.
+
+## USD salary income — implied FX rate derivation
+All real income arrives as USD salary converted to PLN via "Wymiana walut" FX transactions. The PLN account itself shows near-zero income.
+**Why:** Importing the USD account CSV gives accurate salary figures. `_implied_fx_rate(df)` derives the PLN/USD rate from paired FX rows already in the dataset (PLN received ÷ USD sold), avoiding a hardcoded rate. USD income rows (PAYMENT FROM ABROAD) are converted at this rate and added to all income totals.
+**Tradeoff:** `_implied_fx_rate` is called once per endpoint (summary, monthly_trends, income_sources) — 3 redundant dataframe scans per dashboard load. Acceptable for dataset size; could be cached if performance becomes a concern.
+**Gotcha:** `_FALLBACK_RATE = 4.0` is used when no FX pairs exist in the dataset. If USD/PLN diverges significantly from 4.0 and the FX rows are missing, income will be wrong.
