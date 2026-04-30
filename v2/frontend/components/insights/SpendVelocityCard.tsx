@@ -17,7 +17,7 @@ export function SpendVelocityCard({ data }: { data: SpendVelocity }) {
 
   const isOver = data.vs_avg_pct !== null && data.vs_avg_pct > 10;
   const isUnder = data.vs_avg_pct !== null && data.vs_avg_pct < -10;
-  const accentColor = isOver ? "oklch(0.56 0.200 25)" : isUnder ? "oklch(0.64 0.170 145)" : "oklch(0.62 0.155 38)";
+  const accentColor = isOver ? "oklch(0.56 0.200 25)" : isUnder ? "oklch(0.62 0.175 148)" : "oklch(0.54 0.190 152)";
 
   return (
     <Card>
@@ -28,7 +28,7 @@ export function SpendVelocityCard({ data }: { data: SpendVelocity }) {
             <span
               className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{
-                background: isOver ? "oklch(0.95 0.05 25)" : isUnder ? "oklch(0.95 0.05 145)" : "oklch(0.96 0.03 38)",
+                background: isOver ? "oklch(0.95 0.05 25)" : isUnder ? "oklch(0.95 0.05 148)" : "oklch(0.95 0.04 152)",
                 color: accentColor,
               }}
             >

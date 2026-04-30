@@ -6,7 +6,7 @@ import type { BusinessSplit } from "@/lib/api";
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
 
-const COLORS = ["oklch(0.55 0.195 265)", "oklch(0.62 0.155 38)"];
+const COLORS = ["oklch(0.55 0.195 265)", "oklch(0.54 0.190 152)"];
 
 export function BusinessPersonalSplit({ data }: { data: BusinessSplit }) {
   const chartData = [

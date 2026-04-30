@@ -5,7 +5,7 @@ import type { CategoryTrend } from "@/lib/api";
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
 
-const trendColor = { up: "oklch(0.56 0.200 25)", down: "oklch(0.64 0.170 145)", flat: "oklch(0.50 0.015 255)" };
+const trendColor = { up: "oklch(0.56 0.200 25)", down: "oklch(0.62 0.175 148)", flat: "oklch(0.50 0.015 255)" };
 const trendLabel = { up: "▲", down: "▼", flat: "→" };
 
 function Sparkline({ values }: { values: number[] }) {
@@ -27,7 +27,7 @@ function Sparkline({ values }: { values: number[] }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        stroke="oklch(0.62 0.155 38)"
+        stroke="oklch(0.54 0.190 152)"
       />
     </svg>
   );

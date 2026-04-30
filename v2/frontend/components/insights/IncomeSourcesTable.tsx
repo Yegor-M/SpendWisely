@@ -28,7 +28,7 @@ export function IncomeSourcesTable({ data }: { data: IncomeSource[] }) {
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-4">
                   <span className="text-[12px] text-muted-foreground">{src.share_pct}%</span>
-                  <span className="text-[13px] font-semibold tabular-nums" style={{ color: "oklch(0.64 0.170 145)" }}>
+                  <span className="text-[13px] font-semibold tabular-nums" style={{ color: "oklch(0.62 0.175 148)" }}>
                     {fmt(src.total_received)} PLN
                   </span>
                 </div>
@@ -38,7 +38,7 @@ export function IncomeSourcesTable({ data }: { data: IncomeSource[] }) {
                   className="h-full rounded-full"
                   style={{
                     width: `${src.share_pct}%`,
-                    background: "oklch(0.64 0.170 145)",
+                    background: "oklch(0.62 0.175 148)",
                   }}
                 />
               </div>

@@ -56,10 +56,10 @@ export function DowChart({ data }: { data: DowPattern[] }) {
                   key={d.day}
                   fill={
                     WEEKEND.includes(d.day)
-                      ? "oklch(0.62 0.155 38)"
+                      ? "oklch(0.56 0.165 172)"
                       : d.avg === maxAvg
                       ? "oklch(0.56 0.200 25)"
-                      : "oklch(0.55 0.195 265)"
+                      : "oklch(0.62 0.175 148)"
                   }
                 />
               ))}
@@ -67,7 +67,7 @@ export function DowChart({ data }: { data: DowPattern[] }) {
           </BarChart>
         </ResponsiveContainer>
         <p className="text-[11px] text-muted-foreground text-center mt-2">
-          Avg spend per transaction · <span style={{ color: "oklch(0.62 0.155 38)" }}>■</span> weekend · <span style={{ color: "oklch(0.56 0.200 25)" }}>■</span> peak
+          Avg spend per transaction · <span style={{ color: "oklch(0.56 0.165 172)" }}>■</span> weekend · <span style={{ color: "oklch(0.56 0.200 25)" }}>■</span> peak
         </p>
       </CardContent>
     </Card>

@@ -52,8 +52,8 @@ export function MonthlyChart({ data }: { data: MonthlyTrend[] }) {
             <Legend
               wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
             />
-            <Bar dataKey="income"   fill="oklch(0.64 0.170 145)" name="Income"   radius={[4,4,0,0]} maxBarSize={40} />
-            <Bar dataKey="expenses" fill="oklch(0.62 0.155 38)"  name="Expenses" radius={[4,4,0,0]} maxBarSize={40} />
+            <Bar dataKey="income"   fill="oklch(0.62 0.175 148)" name="Income"   radius={[4,4,0,0]} maxBarSize={40} />
+            <Bar dataKey="expenses" fill="oklch(0.58 0.200 25)"  name="Expenses" radius={[4,4,0,0]} maxBarSize={40} />
             <Line
               dataKey="savings"
               stroke="oklch(0.55 0.195 265)"

@@ -6,10 +6,10 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
 
 const confidenceDot: Record<string, string> = {
-  high:   "oklch(0.64 0.170 145)",
+  high:   "oklch(0.62 0.175 148)",
   medium: "oklch(0.70 0.145 90)",
   low:    "oklch(0.50 0.015 255)",
-  "—":    "oklch(0.62 0.155 38)",
+  "—":    "oklch(0.54 0.190 152)",
 };
 
 export function PredictionTable({ data }: { data: Prediction[] }) {

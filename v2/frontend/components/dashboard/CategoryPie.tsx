@@ -3,18 +3,18 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CategoryBreakdown } from "@/lib/api";
 
-// Cohesive palette: same lightness band, evenly spaced hues
+// Green-shades dominant palette with contrast anchors
 const PALETTE = [
-  "oklch(0.62 0.155 38)",   // orange
+  "oklch(0.62 0.175 148)",  // vivid emerald
+  "oklch(0.44 0.165 158)",  // forest
+  "oklch(0.70 0.125 148)",  // sage
+  "oklch(0.56 0.165 172)",  // teal
   "oklch(0.55 0.195 265)",  // indigo
-  "oklch(0.64 0.170 145)",  // emerald
   "oklch(0.70 0.145 90)",   // amber
+  "oklch(0.52 0.185 155)",  // deep emerald
   "oklch(0.60 0.175 300)",  // violet
-  "oklch(0.63 0.155 195)",  // teal
-  "oklch(0.60 0.175 330)",  // pink
-  "oklch(0.64 0.155 220)",  // sky
-  "oklch(0.67 0.130 70)",   // yellow-green
-  "oklch(0.58 0.160 0)",    // red
+  "oklch(0.78 0.090 148)",  // mint
+  "oklch(0.58 0.200 25)",   // coral
 ];
 
 const fmt = (n: number) =>
