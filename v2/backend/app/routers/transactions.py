@@ -66,6 +66,14 @@ def update_category(tx_id: str, patch: TransactionPatch):
     return _row_to_tx(row)
 
 
+@router.delete("", status_code=200)
+def delete_all_transactions():
+    with db() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+        conn.execute("DELETE FROM transactions")
+    return {"deleted": count}
+
+
 @router.post("/cash", response_model=Transaction)
 def add_cash_transaction(tx: ManualTransaction):
     tx_id = hashlib.sha1(
