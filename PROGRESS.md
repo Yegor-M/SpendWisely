@@ -54,12 +54,23 @@
 - **CSV import refresh**: `UploadCsv` calls `router.refresh()` after successful upload so dashboard re-fetches without a full reload
 - **DuckDB concurrency fix**: `routers/insights.py` `_load_df()` now uses `threading.Lock` + `.df()` — 5 concurrent dashboard SSR calls were deadlocking the shared DuckDB connection (5min hang → 208ms)
 
+### PR #5 — feat/import-review-categorization → main (open)
+- `models.py`: `UncategorizedGroup`, `BulkCategorizeItem`, `BulkCategorizeResult`, `SuggestItem`; `IngestResult` extended with `uncategorized_groups`
+- `routers/ingest.py`: builds counterparty groups from newly-imported uncategorized rows, sorted by count desc
+- `routers/transactions.py`: `POST /transactions/bulk-categorize` — sets categories for tx_ids, optionally saves regex rule and retroactively applies to all matching uncategorized rows
+- `routers/categories.py`: `POST /categories/suggest` — runs Haiku (fallback: configured provider), returns `{id: category}` suggestions
+- `services/enricher.py`: **Education** category rule (`kurs`, `szkolenie`, `prawo jazdy`, `OSK`, `nauka jazdy`, `udemy`, `coursera`, `workshop`)
+- `lib/api.ts`: `UncategorizedGroup`, `IngestResult`, `BulkCategorizeItem` types; `api.listCategories`, `api.suggestCategories`, `api.bulkCategorize`
+- `components/ImportReview.tsx`: post-import modal — group table (counterparty, sample title, count, total PLN, category dropdown, save-rule checkbox), AI suggest, apply/skip
+- `components/UploadCsv.tsx`: opens ImportReview after import if uncategorized groups exist; "N uncategorized" stat is clickable to re-open
+
 ## In Progress / Pending
 - PR #1 feat/docker — awaiting merge
 - PR #2 feat/universal-llm — awaiting merge
 - PR #3 feat/insights — awaiting merge
-- **`docker-compose.prod.yml` SSR bug**: needs `API_URL: http://backend:8000/api/v1` added to frontend service env (same fix applied to dev compose this session)
-- **Regex rules gap**: AUTOPAY (accounting/recurring bills), BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), AUTOBEMA (driving school), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) all land in "Bez kategorii" = 37% uncategorized by spend
+- PR #5 feat/import-review-categorization — awaiting merge
+- **`docker-compose.prod.yml` SSR bug**: needs `API_URL: http://backend:8000/api/v1` added to frontend service env
+- **Regex rules gap**: AUTOPAY (accounting/recurring bills), BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if counterparty has mixed USD/PLN rows
 - Phase 3: Apple Wallet export parsing
 - Phase 3: Manual cash entry UI on frontend

@@ -38,6 +38,7 @@ v2/frontend/
   app/transactions/     Transactions table page + loading.tsx skeleton
   components/dashboard/ SummaryCards, MonthlyChart, CategoryPie, TopMerchants, RecurringList
   components/insights/  8 insight panels (SpendVelocity, Deltas, Prediction, Anomalies, DOW, BizSplit, Income, Trends)
+  components/ImportReview.tsx  Post-import modal: group table, AI suggest (Haiku), bulk-categorize + rule save
   lib/api.ts            All API calls — single source of truth
 v1/                     Legacy pipeline — do not extend, reference only
 data/                   Gitignored — personal bank CSV exports
@@ -48,6 +49,7 @@ data/                   Gitignored — personal bank CSV exports
 - `v2/backend/app/services/enricher.py` — read before modifying category rules or LLM integration
 - `v2/backend/app/services/llm.py` — read before adding a new LLM provider or changing prompts
 - `v2/backend/app/database.py` — schema lives here; migrations are manual SQL
+- `v2/frontend/components/ImportReview.tsx` — post-import review modal; read before changing upload flow
 
 ## Conventions
 - Bank CSV dates: `DD.MM.YYYY`; amounts: `1 464,99` (space = thousands, comma = decimal)
@@ -60,6 +62,9 @@ data/                   Gitignored — personal bank CSV exports
 - Docker SSR: server components use `API_URL=http://backend:8000/api/v1` (Docker service name); `NEXT_PUBLIC_API_URL` is for browser-side only. Both must be set in compose env.
 - DuckDB global connection is not thread-safe — `routers/insights.py` uses `threading.Lock` to serialize `_load_df()` calls. Do not remove this lock; concurrent reads from FastAPI's thread pool will deadlock.
 - After CSV import `UploadCsv` calls `router.refresh()` to re-run server components — no full page reload needed.
+- `POST /categories/suggest` uses `claude-haiku-4-5-20251001` when Claude key is set; falls back to configured provider. Accepts `[{id, counterparty, title, abs_amount}]`, returns `{id: category}`.
+- `POST /transactions/bulk-categorize` applies categories to specific `tx_ids`, optionally saves a regex rule derived from counterparty (`re.escape(cp.lower())`), and retroactively updates all other uncategorized rows matching the same counterparty via `LOWER(counterparty) LIKE '%cp%'`.
+- Auto-generated rules use `priority=5` and comment `"auto:{counterparty}"` so they are distinguishable from hand-crafted rules.
 
 ## DB schema
 ```
@@ -75,7 +80,8 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [ ] Merge PR #2 (Universal LLM)
 - [ ] Merge PR #3 (Insights page — includes redesign, USD income, loading skeletons, SSR fix)
 - [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service (same SSR bug as dev compose had)
-- [ ] Expand regex rules for uncategorized merchants: AUTOPAY, BINANCE, personal transfers (MASHA etc), AUTOBEMA, ADMINISTRATRACJA
+- [x] Post-import review modal with AI suggestions and dynamic rules (PR #5)
+- [ ] Expand regex rules for uncategorized merchants: AUTOPAY, BINANCE, personal transfers (MASHA etc), ADMINISTRATRACJA
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Category edit inline on transactions page

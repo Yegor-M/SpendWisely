@@ -46,6 +46,36 @@ class ManualTransaction(BaseModel):
     category: str = "Uncategorized"
 
 
+class UncategorizedGroup(BaseModel):
+    counterparty: str
+    sample_title: str
+    count: int
+    total_amount: float
+    tx_ids: list[str]
+
+
+class BulkCategorizeItem(BaseModel):
+    tx_ids: list[str]
+    category: str
+    save_rule: bool = False
+    counterparty: str = ""
+
+
+class BulkCategorizeResult(BaseModel):
+    updated: int
+    rules_created: int
+    additionally_categorized: int
+
+
+class SuggestItem(BaseModel):
+    id: str
+    counterparty: str
+    title: str
+    abs_amount: float = 0.0
+    currency: str = "PLN"
+    bank_category: str = ""
+
+
 class IngestResult(BaseModel):
     source_file: str
     total_rows: int
@@ -54,6 +84,7 @@ class IngestResult(BaseModel):
     internal_marked: int
     categorized: int
     uncategorized: int
+    uncategorized_groups: list[UncategorizedGroup] = []
 
 
 class Summary(BaseModel):

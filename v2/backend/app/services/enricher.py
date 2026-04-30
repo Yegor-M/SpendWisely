@@ -116,6 +116,8 @@ DEFAULT_RULES: list[CategoryRule] = [
     CategoryRule("Sports & Fitness",r"\b(?:ares|fight club|fitprofit|multisport|siłownia|gym)\b"),
     # Gifts
     CategoryRule("Gifts",           r"\b(?:kwiaciarnia|flowers|prezent)\b"),
+    # Education
+    CategoryRule("Education",       r"\b(?:kurs|szkolenie|szkoła|school|course|udemy|coursera|workshop|egzamin|prawo\s?jazdy|OSK|nauka\s?jazdy)\b"),
     # Transfers (last resort)
     CategoryRule("Transfers",       r"\b(?:przelew|transfer)\b", priority=-10),
 ]

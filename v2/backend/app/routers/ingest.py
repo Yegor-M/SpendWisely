@@ -2,7 +2,7 @@ import io
 import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from app.database import db
-from app.models import IngestResult
+from app.models import IngestResult, UncategorizedGroup
 from app.services.parser import parse_csv
 from app.services.enricher import BankEnricher
 from app.config import settings
@@ -79,6 +79,20 @@ async def ingest_csv(
     categorized = int((active["category"] != "Uncategorized").sum())
     uncategorized = int((active["category"] == "Uncategorized").sum())
 
+    groups: list[UncategorizedGroup] = []
+    if not active.empty:
+        unc = active[active["category"] == "Uncategorized"].copy()
+        unc["counterparty"] = unc["counterparty"].fillna("").astype(str)
+        for cp, grp in unc.groupby("counterparty", sort=False):
+            groups.append(UncategorizedGroup(
+                counterparty=str(cp) or "(unknown)",
+                sample_title=str(grp.iloc[0].get("title", "")),
+                count=len(grp),
+                total_amount=float(grp["abs_amount"].sum()),
+                tx_ids=grp["id"].tolist(),
+            ))
+        groups.sort(key=lambda g: -g.count)
+
     return IngestResult(
         source_file=file.filename,
         total_rows=len(df),
@@ -87,4 +101,5 @@ async def ingest_csv(
         internal_marked=internal,
         categorized=categorized,
         uncategorized=uncategorized,
+        uncategorized_groups=groups,
     )
