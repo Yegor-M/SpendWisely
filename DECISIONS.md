@@ -58,3 +58,9 @@ All real income arrives as USD salary converted to PLN via "Wymiana walut" FX tr
 **Why:** Importing the USD account CSV gives accurate salary figures. `_implied_fx_rate(df)` derives the PLN/USD rate from paired FX rows already in the dataset (PLN received ÷ USD sold), avoiding a hardcoded rate. USD income rows (PAYMENT FROM ABROAD) are converted at this rate and added to all income totals.
 **Tradeoff:** `_implied_fx_rate` is called once per endpoint (summary, monthly_trends, income_sources) — 3 redundant dataframe scans per dashboard load. Acceptable for dataset size; could be cached if performance becomes a concern.
 **Gotcha:** `_FALLBACK_RATE = 4.0` is used when no FX pairs exist in the dataset. If USD/PLN diverges significantly from 4.0 and the FX rows are missing, income will be wrong.
+
+## DuckDB thread-safety — threading.Lock in _load_df()
+FastAPI sync route handlers run in a thread pool. The dashboard fires 5 simultaneous SSR requests via `Promise.allSettled`, resulting in 5 threads all calling `conn.execute()` on the same global `duckdb.DuckDBPyConnection`. DuckDB's Python connection object is not thread-safe for concurrent operations.
+**Why:** The dashboard went from 708ms to 5-minute hangs after adding concurrent SSR calls. All threads blocked on the shared connection. Serializing with `threading.Lock` + switching from `fetchall()` to `.df()` (native Arrow export) reduced concurrent load to 208ms.
+**Tradeoff:** Requests queue behind the lock rather than run in parallel. With the current dataset size (~600 rows), each `_load_df()` takes ~20ms so queue depth is negligible. If the dataset grows significantly, consider per-request read-only connections instead.
+**Gotcha:** `docker compose restart` re-uses old env — must use `docker compose up -d` to apply env changes to a running container.

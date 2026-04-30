@@ -49,8 +49,10 @@
 - `components/insights/`: SpendVelocityCard, CategoryDeltasTable, PredictionTable, AnomaliesPanel, DowChart, BusinessPersonalSplit, IncomeSourcesTable, CategoryTrendsTable
 - **USD salary income**: `_implied_fx_rate()` derives PLN/USD from paired FX rows; USD income rows converted and included in summary, monthly trends, income sources
 - **Full UI redesign**: warm off-white background, Geist Mono body font, deep emerald green palette (replaces orange), dark hero summary card, frosted-glass nav, rounded-2xl cards
-- **Loading skeletons**: `app/transactions/loading.tsx` and `app/insights/loading.tsx` — animate-pulse skeletons matching page layout
-- **Docker SSR fix**: `API_URL=http://backend:8000/api/v1` added to docker-compose frontend env; `lib/api.ts` uses it for server-side fetches (was silently failing with `localhost` which resolves to the frontend container)
+- **Loading skeletons**: `app/loading.tsx`, `app/transactions/loading.tsx`, `app/insights/loading.tsx` — animate-pulse skeletons for all three routes
+- **Docker SSR fix**: `API_URL=http://backend:8000/api/v1` added to docker-compose frontend env; `lib/api.ts` uses it for server-side fetches (was silently failing with `localhost`)
+- **CSV import refresh**: `UploadCsv` calls `router.refresh()` after successful upload so dashboard re-fetches without a full reload
+- **DuckDB concurrency fix**: `routers/insights.py` `_load_df()` now uses `threading.Lock` + `.df()` — 5 concurrent dashboard SSR calls were deadlocking the shared DuckDB connection (5min hang → 208ms)
 
 ## In Progress / Pending
 - PR #1 feat/docker — awaiting merge

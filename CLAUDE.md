@@ -33,6 +33,7 @@ v2/backend/app/
   database.py           DuckDB init + schema (transactions, category_rules tables)
 v2/frontend/
   app/page.tsx          Dashboard (summary, charts, recurring, top merchants)
+  app/loading.tsx       Dashboard loading skeleton
   app/insights/         Full insights page + loading.tsx skeleton
   app/transactions/     Transactions table page + loading.tsx skeleton
   components/dashboard/ SummaryCards, MonthlyChart, CategoryPie, TopMerchants, RecurringList
@@ -57,6 +58,8 @@ data/                   Gitignored — personal bank CSV exports
 - FX "Wymiana walut - sprzedaż USD za PLN" = only PLN side appears in this file (USD side is a separate Pekao account)
 - USD salary arrives as "PAYMENT FROM ABROAD" → categorised as Income; `_implied_fx_rate()` derives PLN/USD from paired FX rows
 - Docker SSR: server components use `API_URL=http://backend:8000/api/v1` (Docker service name); `NEXT_PUBLIC_API_URL` is for browser-side only. Both must be set in compose env.
+- DuckDB global connection is not thread-safe — `routers/insights.py` uses `threading.Lock` to serialize `_load_df()` calls. Do not remove this lock; concurrent reads from FastAPI's thread pool will deadlock.
+- After CSV import `UploadCsv` calls `router.refresh()` to re-run server components — no full page reload needed.
 
 ## DB schema
 ```
