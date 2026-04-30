@@ -99,6 +99,15 @@ export type CategoryTrend = {
   avg: number; trend: "up" | "down" | "flat";
 };
 
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(
+    (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  return res.json();
+}
+
 export const api = {
   summary:         ()      => get<Summary>("/insights/summary"),
   monthly:         ()      => get<MonthlyTrend[]>("/insights/monthly"),
@@ -115,4 +124,5 @@ export const api = {
   categoryTrends:  ()      => get<CategoryTrend[]>("/insights/category-trends"),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
+  deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
 };

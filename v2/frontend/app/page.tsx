@@ -5,6 +5,7 @@ import { CategoryPie } from "@/components/dashboard/CategoryPie";
 import { RecurringList } from "@/components/dashboard/RecurringList";
 import { TopMerchants } from "@/components/dashboard/TopMerchants";
 import { UploadCsv } from "@/components/UploadCsv";
+import { DeleteAllTransactions } from "@/components/DeleteAllTransactions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,10 @@ export default async function Dashboard() {
               <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
               <p className="text-sm text-muted-foreground">Your financial snapshot</p>
             </div>
-            <UploadCsv />
+            <div className="flex items-start gap-3">
+              <DeleteAllTransactions />
+              <UploadCsv />
+            </div>
           </div>
 
           {summary.status === "fulfilled" && (
