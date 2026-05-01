@@ -153,12 +153,24 @@ def _amount_bucket(a: float) -> float:
     return             round(a / 100)   * 100
 
 
+def _period_label(avg_gap: float) -> str | None:
+    if 25 <= avg_gap <= 35:   return "Monthly"
+    if 12 <= avg_gap <= 16:   return "Bi-weekly"
+    if 6  <= avg_gap <= 8:    return "Weekly"
+    if 85 <= avg_gap <= 95:   return "Quarterly"
+    if 355 <= avg_gap <= 375: return "Annual"
+    return None
+
+
 def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: float = 5.0) -> list[dict]:
     exp = _real_expenses(df).copy()
     exp = exp[(exp["abs_amount"] >= min_amount) & (exp["currency"] == "PLN")]
     exp["_amt_bucket"] = exp["abs_amount"].apply(_amount_bucket)
 
     records = []
+    seen_idx: set[int] = set()
+
+    # Pass 1: group by (counterparty, amount bucket) — catches fixed-amount recurring
     for (merchant, amt), grp in exp.groupby(["counterparty", "_amt_bucket"]):
         if len(grp) < min_occurrences or not merchant:
             continue
@@ -168,20 +180,7 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
         gaps = dates.diff().dt.days.dropna().tolist()
         avg_gap = float(np.mean(gaps))
         std_gap = float(np.std(gaps)) if len(gaps) > 1 else 0.0
-
-        if 25 <= avg_gap <= 35:
-            period = "Monthly"
-        elif 12 <= avg_gap <= 16:
-            period = "Bi-weekly"
-        elif 6 <= avg_gap <= 8:
-            period = "Weekly"
-        elif 85 <= avg_gap <= 95:
-            period = "Quarterly"
-        elif 355 <= avg_gap <= 375:
-            period = "Annual"
-        else:
-            period = f"~{avg_gap:.0f}d"
-
+        period = _period_label(avg_gap) or f"~{avg_gap:.0f}d"
         regularity = round(max(0.0, 1.0 - std_gap / (avg_gap + 1e-6)), 2)
         records.append({
             "counterparty": merchant,
@@ -193,6 +192,40 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
             "first_seen":   str(dates.iloc[0].date()),
             "last_seen":    str(dates.iloc[-1].date()),
             "category":     grp["category"].mode().iloc[0] if "category" in grp else "",
+        })
+        seen_idx.update(grp.index.tolist())
+
+    # Pass 2: same counterparty, variable amount — catches e.g. income-based taxes
+    # For any counterparty with uncaptured transactions that appear monthly, add them.
+    all_months_n = exp["month"].nunique()
+    for cp, grp in exp.groupby("counterparty"):
+        if not cp:
+            continue
+        unc = grp[~grp.index.isin(seen_idx)]
+        if len(unc) < min_occurrences:
+            continue
+        if unc["month"].nunique() < max(2, all_months_n * 0.4):
+            continue
+        dates = unc["booking_date"].sort_values().dropna()
+        if len(dates) < 2:
+            continue
+        gaps = dates.diff().dt.days.dropna().tolist()
+        avg_gap = float(np.mean(gaps))
+        std_gap = float(np.std(gaps)) if len(gaps) > 1 else 0.0
+        period = _period_label(avg_gap)
+        if period is None:
+            continue  # irregular cadence — skip
+        regularity = round(max(0.0, 1.0 - std_gap / (avg_gap + 1e-6)), 2)
+        records.append({
+            "counterparty": cp,
+            "amount":       round(float(unc["abs_amount"].median()), 2),
+            "occurrences":  len(unc),
+            "period":       period,
+            "avg_gap_days": round(avg_gap, 1),
+            "regularity":   regularity,
+            "first_seen":   str(dates.iloc[0].date()),
+            "last_seen":    str(dates.iloc[-1].date()),
+            "category":     unc["category"].mode().iloc[0] if not unc.empty else "",
         })
 
     return sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"]))
