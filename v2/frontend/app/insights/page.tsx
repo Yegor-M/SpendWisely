@@ -1,11 +1,12 @@
 import { api } from "@/lib/api";
-import { FinancialHealthBar }    from "@/components/insights/FinancialHealthBar";
 import { InsightsMonthlyChart }  from "@/components/insights/InsightsMonthlyChart";
+import { SavingsRateTrendCard }  from "@/components/insights/SavingsRateTrendCard";
 import { SpendVelocityCard }     from "@/components/insights/SpendVelocityCard";
 import { CategoryDeltasTable }   from "@/components/insights/CategoryDeltasTable";
 import { PredictionTable }       from "@/components/insights/PredictionTable";
 import { AnomaliesPanel }        from "@/components/insights/AnomaliesPanel";
 import { RecurringCostsCard }    from "@/components/insights/RecurringCostsCard";
+import { FixedVsVariableCard }   from "@/components/insights/FixedVsVariableCard";
 import { DowChart }              from "@/components/insights/DowChart";
 import { IncomeSourcesTable }    from "@/components/insights/IncomeSourcesTable";
 import { BusinessPersonalSplit } from "@/components/insights/BusinessPersonalSplit";
@@ -50,17 +51,16 @@ export default async function InsightsPage() {
     api.recurringSummary(), api.topTransactions(10),
   ]);
 
+  const hasSummary   = summaryRes.status === "fulfilled" && Object.keys(summaryRes.value).length > 0;
+  const hasMonthly   = monthlyRes.status === "fulfilled" && monthlyRes.value.length > 0;
+  const hasRecurring = recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0;
+
   return (
     <main className="max-w-7xl mx-auto px-6 py-8 space-y-10">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Insights</h1>
         <p className="text-sm text-muted-foreground">Your money, broken down</p>
       </div>
-
-      {/* ── HEALTH ──────────────────────────────────────────────────── */}
-      {summaryRes.status === "fulfilled" && Object.keys(summaryRes.value).length > 0 && (
-        <FinancialHealthBar data={summaryRes.value} />
-      )}
 
       {/* ── THIS MONTH ──────────────────────────────────────────────── */}
       {(velocity.status === "fulfilled" || deltas.status === "fulfilled") && (
@@ -77,11 +77,14 @@ export default async function InsightsPage() {
       )}
 
       {/* ── STRUCTURAL BASELINE ─────────────────────────────────────── */}
-      {(recurringSummary.status === "fulfilled" || incomeSources.status === "fulfilled" || businessSplit.status === "fulfilled") && (
+      {(hasRecurring || incomeSources.status === "fulfilled" || businessSplit.status === "fulfilled") && (
         <Section title="Structural Baseline" subtitle="What your normal looks like every month">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0 && (
+            {hasRecurring && (
               <RecurringCostsCard data={recurringSummary.value} />
+            )}
+            {hasRecurring && hasSummary && (
+              <FixedVsVariableCard summary={summaryRes.value} recurring={recurringSummary.value} />
             )}
             {incomeSources.status === "fulfilled" && incomeSources.value.length > 0 && (
               <IncomeSourcesTable data={incomeSources.value} />
@@ -94,12 +97,11 @@ export default async function InsightsPage() {
       )}
 
       {/* ── TRENDS ──────────────────────────────────────────────────── */}
-      {(monthlyRes.status === "fulfilled" || categoryTrends.status === "fulfilled" || predict.status === "fulfilled") && (
+      {(hasMonthly || categoryTrends.status === "fulfilled" || predict.status === "fulfilled") && (
         <Section title="Trends" subtitle="Is your situation improving or deteriorating?">
-          {monthlyRes.status === "fulfilled" && monthlyRes.value.length > 0 && (
-            <InsightsMonthlyChart data={monthlyRes.value} />
-          )}
+          {hasMonthly && <InsightsMonthlyChart data={monthlyRes.value} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {hasMonthly && <SavingsRateTrendCard data={monthlyRes.value} />}
             {categoryTrends.status === "fulfilled" && categoryTrends.value.length > 0 && (
               <CategoryTrendsTable data={categoryTrends.value} />
             )}
