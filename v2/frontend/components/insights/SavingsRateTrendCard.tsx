@@ -9,9 +9,11 @@ import type { MonthlyTrend } from "@/lib/api";
 type Props = { data: MonthlyTrend[] };
 
 export function SavingsRateTrendCard({ data }: Props) {
-  const formatted = data.map((d) => ({ month: d.month.slice(2), rate: d.savings_rate_pct }));
-  const avg = data.reduce((s, d) => s + d.savings_rate_pct, 0) / (data.length || 1);
-  const latest = data[data.length - 1]?.savings_rate_pct ?? 0;
+  // Exclude months with no income — they produce a misleading 0% rate
+  const valid = data.filter((d) => d.income > 0);
+  const formatted = valid.map((d) => ({ month: d.month.slice(2), rate: d.savings_rate_pct }));
+  const avg = valid.length > 0 ? valid.reduce((s, d) => s + d.savings_rate_pct, 0) / valid.length : 0;
+  const latest = valid[valid.length - 1]?.savings_rate_pct ?? 0;
   const direction = latest > avg + 2 ? "up" : latest < avg - 2 ? "down" : "flat";
 
   const dirColor =

@@ -1,19 +1,21 @@
 import { api } from "@/lib/api";
-import { InsightsMonthlyChart }    from "@/components/insights/InsightsMonthlyChart";
-import { SavingsRateTrendCard }    from "@/components/insights/SavingsRateTrendCard";
-import { LifestyleInflationCard }  from "@/components/insights/LifestyleInflationCard";
-import { SpendVelocityCard }       from "@/components/insights/SpendVelocityCard";
-import { CategoryDeltasTable }     from "@/components/insights/CategoryDeltasTable";
-import { NewMerchantsCard }        from "@/components/insights/NewMerchantsCard";
-import { PredictionTable }         from "@/components/insights/PredictionTable";
-import { AnomaliesPanel }          from "@/components/insights/AnomaliesPanel";
-import { RecurringCostsCard }      from "@/components/insights/RecurringCostsCard";
-import { FixedVsVariableCard }     from "@/components/insights/FixedVsVariableCard";
-import { DowChart }                from "@/components/insights/DowChart";
-import { IncomeSourcesTable }      from "@/components/insights/IncomeSourcesTable";
-import { BusinessPersonalSplit }   from "@/components/insights/BusinessPersonalSplit";
-import { CategoryTrendsTable }     from "@/components/insights/CategoryTrendsTable";
-import { TopTransactionsCard }     from "@/components/insights/TopTransactionsCard";
+import { Suspense } from "react";
+import { PeriodSelector }         from "@/components/insights/PeriodSelector";
+import { InsightsMonthlyChart }   from "@/components/insights/InsightsMonthlyChart";
+import { SavingsRateTrendCard }   from "@/components/insights/SavingsRateTrendCard";
+import { LifestyleInflationCard } from "@/components/insights/LifestyleInflationCard";
+import { SpendVelocityCard }      from "@/components/insights/SpendVelocityCard";
+import { CategoryDeltasTable }    from "@/components/insights/CategoryDeltasTable";
+import { NewMerchantsCard }       from "@/components/insights/NewMerchantsCard";
+import { PredictionTable }        from "@/components/insights/PredictionTable";
+import { AnomaliesPanel }         from "@/components/insights/AnomaliesPanel";
+import { RecurringCostsCard }     from "@/components/insights/RecurringCostsCard";
+import { FixedVsVariableCard }    from "@/components/insights/FixedVsVariableCard";
+import { DowChart }               from "@/components/insights/DowChart";
+import { IncomeSourcesTable }     from "@/components/insights/IncomeSourcesTable";
+import { BusinessPersonalSplit }  from "@/components/insights/BusinessPersonalSplit";
+import { CategoryTrendsTable }    from "@/components/insights/CategoryTrendsTable";
+import { TopTransactionsCard }    from "@/components/insights/TopTransactionsCard";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +42,32 @@ function Section({
   );
 }
 
-export default async function InsightsPage() {
+export default async function InsightsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
+  const period = params.period ?? "all";
+  const months =
+    period === "1m" ? 1 :
+    period === "3m" ? 3 :
+    period === "6m" ? 6 :
+    undefined;
+
   const [
     summaryRes, monthlyRes,
     velocity, deltas, predict, anomalies,
     dow, businessSplit, incomeSources, categoryTrends,
     recurringSummary, topTransactions, newMerchants,
   ] = await Promise.allSettled([
-    api.summary(), api.monthly(),
-    api.velocity(), api.deltas(), api.predict(), api.anomalies(),
-    api.dow(), api.businessSplit(), api.incomeSources(), api.categoryTrends(),
-    api.recurringSummary(), api.topTransactions(10), api.newMerchants(),
+    api.summary(months), api.monthly(months),
+    api.velocity(), api.deltas(),
+    api.predict(months), api.anomalies(months),
+    api.dow(months), api.businessSplit(months),
+    api.incomeSources(months), api.categoryTrends(months),
+    api.recurringSummary(months), api.topTransactions(10, months),
+    api.newMerchants(),
   ]);
 
   const hasSummary   = summaryRes.status === "fulfilled" && Object.keys(summaryRes.value).length > 0;
@@ -58,10 +75,15 @@ export default async function InsightsPage() {
   const hasRecurring = recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0;
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-8 space-y-10">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Insights</h1>
-        <p className="text-sm text-muted-foreground">Your money, broken down</p>
+    <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Insights</h1>
+          <p className="text-sm text-muted-foreground">Your money, broken down</p>
+        </div>
+        <Suspense>
+          <PeriodSelector />
+        </Suspense>
       </div>
 
       {/* ── THIS MONTH ──────────────────────────────────────────────── */}

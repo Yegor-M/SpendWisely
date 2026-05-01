@@ -3,6 +3,7 @@ from app.database import db
 from app.services import insights as svc
 import pandas as pd
 import threading
+from typing import Optional
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -22,49 +23,54 @@ def _load_df() -> pd.DataFrame:
     return df
 
 
+def _period(df: pd.DataFrame, months: Optional[int]) -> pd.DataFrame:
+    if months is None or df.empty:
+        return df
+    cutoff = (pd.Timestamp.today() - pd.DateOffset(months=months)).strftime("%Y-%m")
+    return df[df["month"] >= cutoff]
+
+
 @router.get("/summary")
-def get_summary():
-    df = _load_df()
-    if df.empty:
-        return {}
-    return svc.summary(df)
+def get_summary(months: Optional[int] = None):
+    return svc.summary(_period(_load_df(), months))
 
 
 @router.get("/monthly")
-def get_monthly():
-    return svc.monthly_trends(_load_df())
+def get_monthly(months: Optional[int] = None):
+    return svc.monthly_trends(_period(_load_df(), months))
 
 
 @router.get("/categories")
-def get_categories():
-    return svc.category_breakdown(_load_df())
+def get_categories(months: Optional[int] = None):
+    return svc.category_breakdown(_period(_load_df(), months))
 
 
 @router.get("/merchants")
-def get_merchants(n: int = 15, direction: str = "expense"):
-    return svc.top_merchants(_load_df(), n=n, direction=direction)
+def get_merchants(n: int = 15, direction: str = "expense", months: Optional[int] = None):
+    return svc.top_merchants(_period(_load_df(), months), n=n, direction=direction)
 
 
 @router.get("/recurring")
-def get_recurring(min_amount: float = 5.0):
-    return svc.detect_recurring(_load_df(), min_amount=min_amount)
+def get_recurring(min_amount: float = 5.0, months: Optional[int] = None):
+    return svc.detect_recurring(_period(_load_df(), months), min_amount=min_amount)
 
 
 @router.get("/anomalies")
-def get_anomalies():
-    return svc.detect_anomalies(_load_df())
+def get_anomalies(months: Optional[int] = None):
+    return svc.detect_anomalies(_period(_load_df(), months))
 
 
 @router.get("/predict")
-def get_predict():
-    return svc.predict_next_month(_load_df())
+def get_predict(months: Optional[int] = None):
+    return svc.predict_next_month(_period(_load_df(), months))
 
 
 @router.get("/dow")
-def get_dow():
-    return svc.day_of_week_patterns(_load_df())
+def get_dow(months: Optional[int] = None):
+    return svc.day_of_week_patterns(_period(_load_df(), months))
 
 
+# velocity and deltas are inherently current-month — no period param
 @router.get("/velocity")
 def get_velocity():
     return svc.spend_velocity(_load_df())
@@ -76,18 +82,18 @@ def get_deltas():
 
 
 @router.get("/income-sources")
-def get_income_sources():
-    return svc.income_sources(_load_df())
+def get_income_sources(months: Optional[int] = None):
+    return svc.income_sources(_period(_load_df(), months))
 
 
 @router.get("/business-split")
-def get_business_split():
-    return svc.business_vs_personal(_load_df())
+def get_business_split(months: Optional[int] = None):
+    return svc.business_vs_personal(_period(_load_df(), months))
 
 
 @router.get("/category-trends")
-def get_category_trends():
-    return svc.category_trends(_load_df())
+def get_category_trends(months: Optional[int] = None):
+    return svc.category_trends(_period(_load_df(), months))
 
 
 @router.get("/new-merchants")
@@ -96,10 +102,10 @@ def get_new_merchants():
 
 
 @router.get("/top-transactions")
-def get_top_transactions(n: int = 10):
-    return svc.top_transactions(_load_df(), n=n)
+def get_top_transactions(n: int = 10, months: Optional[int] = None):
+    return svc.top_transactions(_period(_load_df(), months), n=n)
 
 
 @router.get("/recurring-summary")
-def get_recurring_summary():
-    return svc.recurring_summary(_load_df())
+def get_recurring_summary(months: Optional[int] = None):
+    return svc.recurring_summary(_period(_load_df(), months))

@@ -17,9 +17,10 @@ export function InsightsMonthlyChart({ data }: Props) {
     month: d.month.slice(2), // "24-01" style
   }));
 
+  const validMonths = data.filter((d) => d.income > 0);
   const avgSavingsRate =
-    data.length > 0
-      ? data.reduce((s, d) => s + d.savings_rate_pct, 0) / data.length
+    validMonths.length > 0
+      ? validMonths.reduce((s, d) => s + d.savings_rate_pct, 0) / validMonths.length
       : 0;
 
   return (

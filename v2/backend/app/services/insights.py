@@ -145,10 +145,18 @@ def top_merchants(df: pd.DataFrame, n: int = 15, direction: str = "expense") -> 
 # ---------------------------------------------------------------------------
 # Recurring transactions
 # ---------------------------------------------------------------------------
+def _amount_bucket(a: float) -> float:
+    """Tiered bucketing so variable-amount recurring items (e.g. tax) still group."""
+    if a < 50:    return round(a / 0.5) * 0.5
+    if a < 200:   return round(a / 5)   * 5
+    if a < 1000:  return round(a / 25)  * 25
+    return             round(a / 100)   * 100
+
+
 def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: float = 5.0) -> list[dict]:
     exp = _real_expenses(df).copy()
     exp = exp[(exp["abs_amount"] >= min_amount) & (exp["currency"] == "PLN")]
-    exp["_amt_bucket"] = (exp["abs_amount"] / 0.5).round() * 0.5
+    exp["_amt_bucket"] = exp["abs_amount"].apply(_amount_bucket)
 
     records = []
     for (merchant, amt), grp in exp.groupby(["counterparty", "_amt_bucket"]):

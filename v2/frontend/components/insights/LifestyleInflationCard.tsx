@@ -8,10 +8,11 @@ const fmt = (n: number) =>
 type Props = { data: MonthlyTrend[] };
 
 export function LifestyleInflationCard({ data }: Props) {
-  // Need at least 4 months for a meaningful split
-  if (data.length < 4) return null;
+  // Exclude months with no income and need at least 4 remaining for a meaningful split
+  const valid = data.filter((d) => d.income > 0);
+  if (valid.length < 4) return null;
 
-  const expenses = data.map((d) => d.expenses);
+  const expenses = valid.map((d) => d.expenses);
   const mid = Math.floor(expenses.length / 2);
   const early  = expenses.slice(0, mid);
   const recent = expenses.slice(mid);
@@ -36,8 +37,8 @@ export function LifestyleInflationCard({ data }: Props) {
     verdict === "deflating" ? "Spending is shrinking"    :
     "Spending is stable";
 
-  const earlyLabel  = `${data[0].month} – ${data[mid - 1].month}`;
-  const recentLabel = `${data[mid].month} – ${data[data.length - 1].month}`;
+  const earlyLabel  = `${valid[0].month} – ${valid[mid - 1].month}`;
+  const recentLabel = `${valid[mid].month} – ${valid[valid.length - 1].month}`;
 
   // Bar widths: scale so the larger = 100%
   const maxAvg = Math.max(avgEarly, avgRecent);
