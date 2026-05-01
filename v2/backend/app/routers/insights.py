@@ -90,6 +90,11 @@ def get_category_trends():
     return svc.category_trends(_load_df())
 
 
+@router.get("/new-merchants")
+def get_new_merchants():
+    return svc.new_merchants_this_month(_load_df())
+
+
 @router.get("/top-transactions")
 def get_top_transactions(n: int = 10):
     return svc.top_transactions(_load_df(), n=n)

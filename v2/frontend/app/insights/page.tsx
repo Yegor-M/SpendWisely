@@ -1,17 +1,19 @@
 import { api } from "@/lib/api";
-import { InsightsMonthlyChart }  from "@/components/insights/InsightsMonthlyChart";
-import { SavingsRateTrendCard }  from "@/components/insights/SavingsRateTrendCard";
-import { SpendVelocityCard }     from "@/components/insights/SpendVelocityCard";
-import { CategoryDeltasTable }   from "@/components/insights/CategoryDeltasTable";
-import { PredictionTable }       from "@/components/insights/PredictionTable";
-import { AnomaliesPanel }        from "@/components/insights/AnomaliesPanel";
-import { RecurringCostsCard }    from "@/components/insights/RecurringCostsCard";
-import { FixedVsVariableCard }   from "@/components/insights/FixedVsVariableCard";
-import { DowChart }              from "@/components/insights/DowChart";
-import { IncomeSourcesTable }    from "@/components/insights/IncomeSourcesTable";
-import { BusinessPersonalSplit } from "@/components/insights/BusinessPersonalSplit";
-import { CategoryTrendsTable }   from "@/components/insights/CategoryTrendsTable";
-import { TopTransactionsCard }   from "@/components/insights/TopTransactionsCard";
+import { InsightsMonthlyChart }    from "@/components/insights/InsightsMonthlyChart";
+import { SavingsRateTrendCard }    from "@/components/insights/SavingsRateTrendCard";
+import { LifestyleInflationCard }  from "@/components/insights/LifestyleInflationCard";
+import { SpendVelocityCard }       from "@/components/insights/SpendVelocityCard";
+import { CategoryDeltasTable }     from "@/components/insights/CategoryDeltasTable";
+import { NewMerchantsCard }        from "@/components/insights/NewMerchantsCard";
+import { PredictionTable }         from "@/components/insights/PredictionTable";
+import { AnomaliesPanel }          from "@/components/insights/AnomaliesPanel";
+import { RecurringCostsCard }      from "@/components/insights/RecurringCostsCard";
+import { FixedVsVariableCard }     from "@/components/insights/FixedVsVariableCard";
+import { DowChart }                from "@/components/insights/DowChart";
+import { IncomeSourcesTable }      from "@/components/insights/IncomeSourcesTable";
+import { BusinessPersonalSplit }   from "@/components/insights/BusinessPersonalSplit";
+import { CategoryTrendsTable }     from "@/components/insights/CategoryTrendsTable";
+import { TopTransactionsCard }     from "@/components/insights/TopTransactionsCard";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +45,12 @@ export default async function InsightsPage() {
     summaryRes, monthlyRes,
     velocity, deltas, predict, anomalies,
     dow, businessSplit, incomeSources, categoryTrends,
-    recurringSummary, topTransactions,
+    recurringSummary, topTransactions, newMerchants,
   ] = await Promise.allSettled([
     api.summary(), api.monthly(),
     api.velocity(), api.deltas(), api.predict(), api.anomalies(),
     api.dow(), api.businessSplit(), api.incomeSources(), api.categoryTrends(),
-    api.recurringSummary(), api.topTransactions(10),
+    api.recurringSummary(), api.topTransactions(10), api.newMerchants(),
   ]);
 
   const hasSummary   = summaryRes.status === "fulfilled" && Object.keys(summaryRes.value).length > 0;
@@ -63,7 +65,7 @@ export default async function InsightsPage() {
       </div>
 
       {/* ── THIS MONTH ──────────────────────────────────────────────── */}
-      {(velocity.status === "fulfilled" || deltas.status === "fulfilled") && (
+      {(velocity.status === "fulfilled" || deltas.status === "fulfilled" || newMerchants.status === "fulfilled") && (
         <Section title="This Month" subtitle="How you're tracking right now">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {velocity.status === "fulfilled" && Object.keys(velocity.value).length > 0 && (
@@ -71,6 +73,9 @@ export default async function InsightsPage() {
             )}
             {deltas.status === "fulfilled" && deltas.value.length > 0 && (
               <CategoryDeltasTable data={deltas.value} />
+            )}
+            {newMerchants.status === "fulfilled" && newMerchants.value.length > 0 && (
+              <NewMerchantsCard data={newMerchants.value} />
             )}
           </div>
         </Section>
@@ -102,6 +107,7 @@ export default async function InsightsPage() {
           {hasMonthly && <InsightsMonthlyChart data={monthlyRes.value} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hasMonthly && <SavingsRateTrendCard data={monthlyRes.value} />}
+            {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
             {categoryTrends.status === "fulfilled" && categoryTrends.value.length > 0 && (
               <CategoryTrendsTable data={categoryTrends.value} />
             )}

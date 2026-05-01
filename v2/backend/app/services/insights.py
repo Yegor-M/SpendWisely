@@ -462,6 +462,38 @@ def category_trends(df: pd.DataFrame) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# New merchants this month (counterparties seen for the first time)
+# ---------------------------------------------------------------------------
+def new_merchants_this_month(df: pd.DataFrame) -> list[dict]:
+    exp = _real_expenses(df)
+    exp = exp[exp["currency"] == "PLN"].copy()
+    if exp.empty:
+        return []
+
+    current_month = pd.Timestamp.today().strftime("%Y-%m")
+    first_seen = exp.groupby("counterparty")["booking_date"].min()
+    new_cps = first_seen[first_seen.dt.strftime("%Y-%m") == current_month].index
+
+    if new_cps.empty:
+        return []
+
+    new_txs = exp[exp["counterparty"].isin(new_cps) & (exp["month"] == current_month)]
+    out = (
+        new_txs.groupby("counterparty")
+        .agg(
+            total=("abs_amount", "sum"),
+            count=("abs_amount", "size"),
+            category=("category", lambda x: x.mode().iloc[0] if len(x) > 0 else ""),
+            first_seen=("booking_date", "min"),
+        )
+        .reset_index()
+        .sort_values("total", ascending=False)
+    )
+    out["first_seen"] = out["first_seen"].dt.strftime("%Y-%m-%d")
+    return out.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
 # Top individual transactions (biggest single expenses)
 # ---------------------------------------------------------------------------
 def top_transactions(df: pd.DataFrame, n: int = 10) -> list[dict]:
