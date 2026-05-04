@@ -99,6 +99,22 @@ export type CategoryTrend = {
   avg: number; trend: "up" | "down" | "flat";
 };
 
+export type NewMerchant = {
+  counterparty: string; total: number; count: number;
+  category: string; first_seen: string;
+};
+
+export type TopTransaction = {
+  booking_date: string; counterparty: string; title: string;
+  abs_amount: number; category: string; month: string;
+};
+
+export type RecurringSummary = {
+  total_monthly_recurring: number;
+  item_count: number;
+  items: Array<Recurring & { monthly_equiv: number }>;
+};
+
 export type UncategorizedGroup = {
   counterparty: string;
   sample_title: string;
@@ -150,19 +166,22 @@ async function del<T>(path: string): Promise<T> {
 }
 
 export const api = {
-  summary:         ()      => get<Summary>("/insights/summary"),
-  monthly:         ()      => get<MonthlyTrend[]>("/insights/monthly"),
-  categories:      ()      => get<CategoryBreakdown[]>("/insights/categories"),
-  merchants:       (n = 10)=> get<Merchant[]>("/insights/merchants", { n }),
-  recurring:       ()      => get<Recurring[]>("/insights/recurring"),
-  predict:         ()      => get<Prediction[]>("/insights/predict"),
-  dow:             ()      => get<DowPattern[]>("/insights/dow"),
-  anomalies:       ()      => get<Anomaly[]>("/insights/anomalies"),
-  velocity:        ()      => get<SpendVelocity>("/insights/velocity"),
-  deltas:          ()      => get<CategoryDelta[]>("/insights/deltas"),
-  incomeSources:   ()      => get<IncomeSource[]>("/insights/income-sources"),
-  businessSplit:   ()      => get<BusinessSplit>("/insights/business-split"),
-  categoryTrends:  ()      => get<CategoryTrend[]>("/insights/category-trends"),
+  summary:         (months?: number) => get<Summary>("/insights/summary", months ? { months } : undefined),
+  monthly:         (months?: number) => get<MonthlyTrend[]>("/insights/monthly", months ? { months } : undefined),
+  categories:      (months?: number) => get<CategoryBreakdown[]>("/insights/categories", months ? { months } : undefined),
+  merchants:       (n = 10, months?: number) => get<Merchant[]>("/insights/merchants", { n, ...(months ? { months } : {}) }),
+  recurring:       (months?: number) => get<Recurring[]>("/insights/recurring", months ? { months } : undefined),
+  predict:         (months?: number) => get<Prediction[]>("/insights/predict", months ? { months } : undefined),
+  dow:             (months?: number) => get<DowPattern[]>("/insights/dow", months ? { months } : undefined),
+  anomalies:       (months?: number) => get<Anomaly[]>("/insights/anomalies", months ? { months } : undefined),
+  velocity:        ()                => get<SpendVelocity>("/insights/velocity"),
+  deltas:          ()                => get<CategoryDelta[]>("/insights/deltas"),
+  incomeSources:   (months?: number) => get<IncomeSource[]>("/insights/income-sources", months ? { months } : undefined),
+  businessSplit:   (months?: number) => get<BusinessSplit>("/insights/business-split", months ? { months } : undefined),
+  categoryTrends:  (months?: number) => get<CategoryTrend[]>("/insights/category-trends", months ? { months } : undefined),
+  topTransactions: (n = 10, months?: number) => get<TopTransaction[]>("/insights/top-transactions", { n, ...(months ? { months } : {}) }),
+  newMerchants:    ()                => get<NewMerchant[]>("/insights/new-merchants"),
+  recurringSummary:(months?: number) => get<RecurringSummary>("/insights/recurring-summary", months ? { months } : undefined),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),

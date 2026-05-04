@@ -36,28 +36,46 @@ function Sparkline({ values }: { values: number[] }) {
 export function CategoryTrendsTable({ data }: { data: CategoryTrend[] }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Category Trends</CardTitle>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle>Category Trends</CardTitle>
+          <p className="text-[11px] text-muted-foreground">last · avg · trend</p>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="divide-y divide-border/50">
-          {data.slice(0, 14).map((row) => (
-            <div key={row.category} className="flex items-center py-2.5 first:pt-0 last:pb-0 gap-3">
-              <span className="flex-1 text-[13px] font-medium truncate">{row.category}</span>
-              <span className="text-[12px] text-muted-foreground tabular-nums w-20 text-right">
-                avg {fmt(row.avg)}
-              </span>
-              <div className="w-14 flex justify-center">
-                <Sparkline values={row.values} />
+          {data.slice(0, 14).map((row) => {
+            const lastVal = row.values.length > 0 ? row.values[row.values.length - 1] : 0;
+            const vsAvg = row.avg > 0 ? ((lastVal - row.avg) / row.avg) * 100 : 0;
+            return (
+              <div key={row.category} className="flex items-center py-2.5 first:pt-0 last:pb-0 gap-3">
+                <span className="flex-1 text-[13px] font-medium truncate">{row.category}</span>
+                <div className="text-right">
+                  <p className="text-[12px] font-semibold tabular-nums">{fmt(lastVal)}</p>
+                  <p
+                    className="text-[10px]"
+                    style={{
+                      color:
+                        vsAvg > 15 ? "oklch(0.56 0.200 25)"
+                        : vsAvg < -15 ? "oklch(0.62 0.175 148)"
+                        : "oklch(0.50 0.015 255)",
+                    }}
+                  >
+                    {vsAvg > 0 ? "+" : ""}{vsAvg.toFixed(0)}% vs avg
+                  </p>
+                </div>
+                <div className="w-14 flex justify-center">
+                  <Sparkline values={row.values} />
+                </div>
+                <span
+                  className="text-[12px] font-semibold w-8 text-right"
+                  style={{ color: trendColor[row.trend] }}
+                >
+                  {trendLabel[row.trend]}
+                </span>
               </div>
-              <span
-                className="text-[12px] font-semibold w-8 text-right"
-                style={{ color: trendColor[row.trend] }}
-              >
-                {trendLabel[row.trend]}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
