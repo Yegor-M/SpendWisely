@@ -10,6 +10,7 @@ Key improvements over v1:
 """
 from __future__ import annotations
 
+import re
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -145,47 +146,103 @@ def top_merchants(df: pd.DataFrame, n: int = 15, direction: str = "expense") -> 
 # ---------------------------------------------------------------------------
 # Recurring transactions
 # ---------------------------------------------------------------------------
+def _amount_bucket(a: float) -> float:
+    """Tiered bucketing so variable-amount recurring items (e.g. tax) still group."""
+    if a < 50:    return round(a / 0.5) * 0.5
+    if a < 200:   return round(a / 5)   * 5
+    if a < 1000:  return round(a / 25)  * 25
+    return             round(a / 100)   * 100
+
+
+def _period_label(avg_gap: float) -> str | None:
+    if 25 <= avg_gap <= 35:   return "Monthly"
+    if 12 <= avg_gap <= 16:   return "Bi-weekly"
+    if 6  <= avg_gap <= 8:    return "Weekly"
+    if 85 <= avg_gap <= 95:   return "Quarterly"
+    if 355 <= avg_gap <= 375: return "Annual"
+    return None
+
+
+# Strips dates, reference numbers, and other per-occurrence variable parts from titles.
+_DATE_PATTERNS = re.compile(
+    r'\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b'  # DD.MM.YYYY / DD-MM-YY
+    r'|\b\d{1,2}[./]\d{4}\b'                  # MM/YYYY
+    r'|\b\d{4}[-/]\d{2}\b'                    # YYYY-MM
+    r'|\b\d{8,}\b'                             # long reference numbers
+)
+
+
+def _title_key(title: str) -> str:
+    t = _DATE_PATTERNS.sub('', str(title).lower())
+    return re.sub(r'\s+', ' ', t).strip()[:50]
+
+
+def _recurring_entry(grp: pd.DataFrame, cp: str, dates: pd.Series,
+                     gaps: list[float]) -> dict:
+    avg_gap = float(np.mean(gaps))
+    std_gap = float(np.std(gaps)) if len(gaps) > 1 else 0.0
+    return {
+        "counterparty": cp,
+        "amount":       round(float(grp["abs_amount"].median()), 2),
+        "occurrences":  len(grp),
+        "period":       _period_label(avg_gap) or f"~{avg_gap:.0f}d",
+        "avg_gap_days": round(avg_gap, 1),
+        "regularity":   round(max(0.0, 1.0 - std_gap / (avg_gap + 1e-6)), 2),
+        "first_seen":   str(dates.iloc[0].date()),
+        "last_seen":    str(dates.iloc[-1].date()),
+        "category":     grp["category"].mode().iloc[0] if not grp.empty else "",
+    }
+
+
 def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: float = 5.0) -> list[dict]:
     exp = _real_expenses(df).copy()
     exp = exp[(exp["abs_amount"] >= min_amount) & (exp["currency"] == "PLN")]
-    exp["_amt_bucket"] = (exp["abs_amount"] / 0.5).round() * 0.5
+    exp["_title_key"] = exp["title"].fillna("").apply(_title_key)
 
     records = []
-    for (merchant, amt), grp in exp.groupby(["counterparty", "_amt_bucket"]):
-        if len(grp) < min_occurrences or not merchant:
+    seen_idx: set[int] = set()
+    all_months_n = max(1, exp["month"].nunique())
+
+    # Pass 1 — group by (counterparty, normalised title).
+    # Strips dates/refs from the title so "ZUS 01/2025" and "ZUS 02/2025" cluster
+    # together, while "ZUS SPOŁECZNE" and "ZUS ZDROWOTNE" stay separate.
+    for (cp, tkey), grp in exp.groupby(["counterparty", "_title_key"]):
+        if not cp or len(grp) < min_occurrences:
+            continue
+        if grp["month"].nunique() < max(2, all_months_n * 0.4):
             continue
         dates = grp["booking_date"].sort_values().dropna()
         if len(dates) < 2:
             continue
         gaps = dates.diff().dt.days.dropna().tolist()
+        if not gaps:
+            continue
+        entry = _recurring_entry(grp, cp, dates, gaps)
+        if _period_label(float(np.mean(gaps))) is None and float(np.mean(gaps)) > 40:
+            continue  # skip clearly irregular
+        records.append(entry)
+        seen_idx.update(grp.index.tolist())
+
+    # Pass 2 — fallback for transactions not captured above (blank/generic titles).
+    # Group solely by counterparty; require monthly cadence and coverage.
+    for cp, grp in exp.groupby("counterparty"):
+        if not cp:
+            continue
+        unc = grp[~grp.index.isin(seen_idx)]
+        if len(unc) < min_occurrences:
+            continue
+        if unc["month"].nunique() < max(2, all_months_n * 0.4):
+            continue
+        dates = unc["booking_date"].sort_values().dropna()
+        if len(dates) < 2:
+            continue
+        gaps = dates.diff().dt.days.dropna().tolist()
+        if not gaps:
+            continue
         avg_gap = float(np.mean(gaps))
-        std_gap = float(np.std(gaps)) if len(gaps) > 1 else 0.0
-
-        if 25 <= avg_gap <= 35:
-            period = "Monthly"
-        elif 12 <= avg_gap <= 16:
-            period = "Bi-weekly"
-        elif 6 <= avg_gap <= 8:
-            period = "Weekly"
-        elif 85 <= avg_gap <= 95:
-            period = "Quarterly"
-        elif 355 <= avg_gap <= 375:
-            period = "Annual"
-        else:
-            period = f"~{avg_gap:.0f}d"
-
-        regularity = round(max(0.0, 1.0 - std_gap / (avg_gap + 1e-6)), 2)
-        records.append({
-            "counterparty": merchant,
-            "amount":       float(amt),
-            "occurrences":  len(grp),
-            "period":       period,
-            "avg_gap_days": round(avg_gap, 1),
-            "regularity":   regularity,
-            "first_seen":   str(dates.iloc[0].date()),
-            "last_seen":    str(dates.iloc[-1].date()),
-            "category":     grp["category"].mode().iloc[0] if "category" in grp else "",
-        })
+        if _period_label(avg_gap) is None:
+            continue
+        records.append(_recurring_entry(unc, cp, dates, gaps))
 
     return sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"]))
 
@@ -459,6 +516,80 @@ def category_trends(df: pd.DataFrame) -> list[dict]:
         })
     records.sort(key=lambda r: -r["avg"])
     return records
+
+
+# ---------------------------------------------------------------------------
+# New merchants this month (counterparties seen for the first time)
+# ---------------------------------------------------------------------------
+def new_merchants_this_month(df: pd.DataFrame) -> list[dict]:
+    exp = _real_expenses(df)
+    exp = exp[exp["currency"] == "PLN"].copy()
+    if exp.empty:
+        return []
+
+    current_month = pd.Timestamp.today().strftime("%Y-%m")
+    first_seen = exp.groupby("counterparty")["booking_date"].min()
+    new_cps = first_seen[first_seen.dt.strftime("%Y-%m") == current_month].index
+
+    if new_cps.empty:
+        return []
+
+    new_txs = exp[exp["counterparty"].isin(new_cps) & (exp["month"] == current_month)]
+    out = (
+        new_txs.groupby("counterparty")
+        .agg(
+            total=("abs_amount", "sum"),
+            count=("abs_amount", "size"),
+            category=("category", lambda x: x.mode().iloc[0] if len(x) > 0 else ""),
+            first_seen=("booking_date", "min"),
+        )
+        .reset_index()
+        .sort_values("total", ascending=False)
+    )
+    out["first_seen"] = out["first_seen"].dt.strftime("%Y-%m-%d")
+    return out.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Top individual transactions (biggest single expenses)
+# ---------------------------------------------------------------------------
+def top_transactions(df: pd.DataFrame, n: int = 10) -> list[dict]:
+    exp = _real_expenses(df)
+    exp = exp[exp["currency"] == "PLN"].copy()
+    if exp.empty:
+        return []
+    top = exp.nlargest(n, "abs_amount")[
+        ["booking_date", "counterparty", "title", "abs_amount", "category", "month"]
+    ].copy()
+    top["booking_date"] = top["booking_date"].dt.strftime("%Y-%m-%d")
+    return top.to_dict("records")
+
+
+# ---------------------------------------------------------------------------
+# Recurring cost summary (total monthly committed spend)
+# ---------------------------------------------------------------------------
+def recurring_summary(df: pd.DataFrame) -> dict:
+    items = detect_recurring(df)
+    monthly_items = [r for r in items if r["period"] == "Monthly"]
+    biweekly_items = [r for r in items if r["period"] == "Bi-weekly"]
+
+    # Normalize to monthly equivalent
+    monthly_total = sum(r["amount"] for r in monthly_items)
+    biweekly_total = sum(r["amount"] * 2 for r in biweekly_items)  # ~2x per month
+    total = round(monthly_total + biweekly_total, 2)
+
+    # All items sorted by amount desc (with monthly-equivalent amount)
+    all_items = []
+    for r in items:
+        monthly_equiv = r["amount"] * 2 if r["period"] == "Bi-weekly" else r["amount"]
+        all_items.append({**r, "monthly_equiv": round(monthly_equiv, 2)})
+    all_items.sort(key=lambda x: -x["monthly_equiv"])
+
+    return {
+        "total_monthly_recurring": total,
+        "item_count": len(items),
+        "items": all_items,
+    }
 
 
 # ---------------------------------------------------------------------------
