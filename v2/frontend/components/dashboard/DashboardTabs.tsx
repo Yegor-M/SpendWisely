@@ -1,33 +1,31 @@
 "use client";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
-const PERIODS = [
-  { value: "all", label: "All time" },
-  { value: "6m",  label: "6 months" },
-  { value: "3m",  label: "Quarter"  },
-  { value: "1m",  label: "Month"    },
+const TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "earn",     label: "Earn"     },
 ];
 
-export function PeriodSelector() {
+export function DashboardTabs() {
   const router   = useRouter();
   const params   = useSearchParams();
   const pathname = usePathname();
-  const current  = params.get("period") ?? "all";
+  const current  = params.get("tab") ?? "overview";
 
   function select(value: string) {
     const p = new URLSearchParams(params.toString());
-    if (value === "all") p.delete("period");
-    else p.set("period", value);
+    if (value === "overview") p.delete("tab");
+    else p.set("tab", value);
     router.replace(`${pathname}${p.toString() ? "?" + p.toString() : ""}`, { scroll: false });
   }
 
   return (
     <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-      {PERIODS.map(({ value, label }) => (
+      {TABS.map(({ value, label }) => (
         <button
           key={value}
           onClick={() => select(value)}
-          className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
             current === value
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
