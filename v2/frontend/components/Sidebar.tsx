@@ -14,13 +14,10 @@ export function Sidebar() {
   return (
     <>
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden md:flex flex-col w-52 shrink-0 border-r border-border/60 bg-background min-h-screen sticky top-0 h-screen">
+      <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-border/60 bg-background min-h-screen sticky top-0 h-screen">
         {/* Logo */}
         <div className="h-14 flex items-center px-4 border-b border-border/60">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
-              <span className="text-accent-foreground text-xs font-bold tracking-tight">S</span>
-            </div>
+          <Link href="/">
             <span className="font-semibold text-[15px] tracking-tight">SpendWisely</span>
           </Link>
         </div>
@@ -50,10 +47,7 @@ export function Sidebar() {
       {/* ── Mobile top bar ── */}
       <header className="md:hidden sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border/60">
         <div className="px-4 h-12 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center">
-              <span className="text-accent-foreground text-[10px] font-bold">S</span>
-            </div>
+          <Link href="/">
             <span className="font-semibold text-[14px] tracking-tight">SpendWisely</span>
           </Link>
           <nav className="flex items-center gap-0.5">

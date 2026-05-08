@@ -27,8 +27,9 @@ export default async function Dashboard({
     period === "6m" ? 6 :
     undefined;
 
-  const [summary, monthly, categories, merchants, recurring] = await Promise.allSettled([
+  const [summary, currentMonth, monthly, categories, merchants, recurring] = await Promise.allSettled([
     api.summary(months),
+    api.summary(1),
     api.monthly(months),
     api.categories(months),
     api.merchants(10, months),
@@ -69,7 +70,10 @@ export default async function Dashboard({
 
           {/* ── Summary cards (always visible) ─────────────────────── */}
           {summary.status === "fulfilled" && (
-            <SummaryCards data={summary.value} />
+            <SummaryCards
+              data={summary.value}
+              monthData={currentMonth.status === "fulfilled" ? currentMonth.value : undefined}
+            />
           )}
 
           {/* ── Overview tab ───────────────────────────────────────── */}
