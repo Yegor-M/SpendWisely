@@ -8,10 +8,11 @@ const pln = (n: number) =>
 const usd = (n: number) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 
-export function SummaryCards({ data }: { data: Summary }) {
-  const isPositive  = data.net_balance >= 0;
-  const netUsd      = data.implied_fx_rate > 0 ? data.net_balance / data.implied_fx_rate : 0;
-  const hasSalary   = data.usd_salary_total > 0;
+export function SummaryCards({ data, monthData }: { data: Summary; monthData?: Summary }) {
+  const bal          = monthData ?? data;
+  const isPositive   = bal.net_balance >= 0;
+  const netUsd       = data.implied_fx_rate > 0 ? bal.net_balance / data.implied_fx_rate : 0;
+  const hasSalary    = data.usd_salary_total > 0;
   const balanceColor = isPositive ? "text-emerald-400" : "text-red-400";
 
   return (
@@ -28,15 +29,15 @@ export function SummaryCards({ data }: { data: Summary }) {
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
             <p className={`text-5xl font-black tracking-tighter leading-none ${balanceColor}`}>
-              {pln(data.net_balance)}
+              {pln(bal.net_balance)}
             </p>
             <p className="text-xl font-semibold tracking-tight text-background/40">
               ≈ ${usd(netUsd)}
             </p>
             <p className="text-[12px] text-background/40 pt-1">
-              {data.months_covered} months · savings rate{" "}
+              this month · savings rate{" "}
               <span className={balanceColor}>
-                {data.savings_rate_pct > 0 ? "+" : ""}{data.savings_rate_pct.toFixed(1)}%
+                {bal.savings_rate_pct > 0 ? "+" : ""}{bal.savings_rate_pct.toFixed(1)}%
               </span>
             </p>
           </CardContent>
