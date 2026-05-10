@@ -304,32 +304,87 @@ def predict_next_month(df: pd.DataFrame) -> list[dict]:
     exp = _real_expenses(df)[df["currency"] == "PLN"]
     pivot = exp.pivot_table(index="month", columns="category", values="abs_amount",
                             aggfunc="sum", fill_value=0).sort_index()
+    months_index = list(pivot.index)
     records = []
     for cat in pivot.columns:
         vals = pivot[cat].tolist()
         non_zero = [v for v in vals if v > 0]
         if not non_zero:
             continue
+
+        avg = float(np.mean(non_zero))
+        last_month_actual = float(vals[-1]) if vals else 0.0
+        months_observed = len(non_zero)
+
+        # per-month history for sparkline (last 6 months)
+        history = [
+            {"month": m, "amount": round(float(v), 2)}
+            for m, v in zip(months_index, vals)
+        ][-6:]
+
         if len(non_zero) < 2:
-            predicted = float(np.mean(non_zero))
+            predicted = avg
+            slope = 0.0
+            cv = 0.0
             confidence = "low"
+            range_low = predicted
+            range_high = predicted
         else:
             n = len(vals)
             x = np.arange(n, dtype=float)
             slope = float(np.polyfit(x, vals, 1)[0])
-            predicted = max(0.0, float(np.mean(non_zero)) + slope)
-            cv = float(np.std(non_zero) / (np.mean(non_zero) + 1e-6))
+            predicted = max(0.0, avg + slope)
+            cv = float(np.std(non_zero) / (avg + 1e-6))
             confidence = "high" if cv < 0.2 else ("medium" if cv < 0.5 else "low")
+            std = float(np.std(non_zero))
+            range_low  = max(0.0, predicted - std)
+            range_high = predicted + std
+
+        # trend: slope as % of mean, bucketed
+        trend_pct = round(slope / (avg + 1e-6) * 100, 1)
+        if trend_pct > 5:
+            trend_direction = "up"
+        elif trend_pct < -5:
+            trend_direction = "down"
+        else:
+            trend_direction = "stable"
+
+        delta_vs_last = round(predicted - last_month_actual, 2)
+
         records.append({
-            "category":        cat,
-            "predicted_spend": round(predicted, 2),
-            "avg_historical":  round(float(np.mean(vals)), 2),
-            "confidence":      confidence,
+            "category":           cat,
+            "predicted_spend":    round(predicted, 2),
+            "avg_historical":     round(avg, 2),
+            "confidence":         confidence,
+            "cv":                 round(cv, 3),
+            "last_month_actual":  round(last_month_actual, 2),
+            "delta_vs_last":      delta_vs_last,
+            "trend_direction":    trend_direction,
+            "trend_pct":          trend_pct,
+            "range_low":          round(range_low, 2),
+            "range_high":         round(range_high, 2),
+            "months_observed":    months_observed,
+            "history":            history,
         })
+
     records.sort(key=lambda r: -r["predicted_spend"])
-    total = sum(r["predicted_spend"] for r in records)
-    records.append({"category": "TOTAL", "predicted_spend": round(total, 2),
-                    "avg_historical": 0, "confidence": "—"})
+    total_predicted   = sum(r["predicted_spend"] for r in records)
+    total_last_month  = sum(r["last_month_actual"] for r in records)
+    records.append({
+        "category":           "TOTAL",
+        "predicted_spend":    round(total_predicted, 2),
+        "avg_historical":     0,
+        "confidence":         "—",
+        "cv":                 0,
+        "last_month_actual":  round(total_last_month, 2),
+        "delta_vs_last":      round(total_predicted - total_last_month, 2),
+        "trend_direction":    "stable",
+        "trend_pct":          0,
+        "range_low":          0,
+        "range_high":         0,
+        "months_observed":    0,
+        "history":            [],
+    })
     return records
 
 

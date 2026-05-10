@@ -64,11 +64,24 @@
 - `components/ImportReview.tsx`: post-import modal — group table (counterparty, sample title, count, total PLN, category dropdown, save-rule checkbox), AI suggest, apply/skip
 - `components/UploadCsv.tsx`: opens ImportReview after import if uncategorized groups exist; "N uncategorized" stat is clickable to re-open
 
+### PR #7 — feat/prediction-panel-v2 (open)
+- **Plan tab** (`app/plan/page.tsx`): new page fetching velocity + thisMonthTx + predict; header shows month, day progress bar, ±% vs avg pace
+- **ThisMonthChecklist** (`components/plan/ThisMonthChecklist.tsx`): Bills (paid✓ + coming up○ combined) / Daily (collapsed, category groups) / One-time (collapsed, category groups); section headers show `paid/total PLN`; category shown in each row instead of period badge
+- **Salary month attribution** (`services/parser.py`): `_salary_month()` parses `thruMMMDD` in income title; corrects early-posted salary to correct month; handles year rollover (Jan booking + Dec thru → year-1). Applied in `parse_csv()` for all future imports. Existing 6 misattributed records patched via temporary admin endpoint (now removed).
+- **Load-more transactions** (`components/TransactionsTable.tsx` + `app/transactions/page.tsx`): server SSRs first 200 rows; client component appends via `useTransition`; shows "N transactions · all loaded" when done
+- **PredictionTable rewrite** (`components/insights/PredictionTable.tsx`): sort controls (amount/delta/trend/stability), summary pills (trending up/down/volatile count), trend arrows, confidence pills, range band with CV%, 6-bar sparklines, comparison bar chart toggle
+- **Prediction data enrichment** (`services/insights.py`): `predict_next_month()` now returns `last_month_actual`, `delta_vs_last`, `trend_direction`, `trend_pct`, `range_low`, `range_high`, `cv`, `months_observed`, `history` (last 6 months); TOTAL row gets full fields
+- **CategoryPie multi-select restored** (`components/dashboard/CategoryPie.tsx`): click slice or legend row to select; center overlay shows combined % + PLN; unselected fade to 20% opacity
+- **Insights page cleanup** (`app/insights/page.tsx`): removed SpendVelocityCard and PredictionTable (both moved to Plan); removed "This Month" section; CategoryDeltasTable moved to Trends; NewMerchantsCard moved to Events & Alerts
+- **Commitment classification** (`routers/insights.py`): `ALWAYS_HABIT_CATS` for habitual-by-nature categories (Groceries etc.); `RECURRING_HABIT_CATS` require recurring signal (Food & Dining etc.)
+- **USD income FX fix** (`routers/insights.py`): `GET /insights/this-month-transactions` now converts USD income via `svc._implied_fx_rate(df)` — previously summed USD as PLN face value
+
 ## In Progress / Pending
 - PR #1 feat/docker — awaiting merge
 - PR #2 feat/universal-llm — awaiting merge
 - PR #3 feat/insights — awaiting merge
 - PR #5 feat/import-review-categorization — awaiting merge
+- PR #7 feat/prediction-panel-v2 — awaiting merge
 - **`docker-compose.prod.yml` SSR bug**: needs `API_URL: http://backend:8000/api/v1` added to frontend service env
 - **Regex rules gap**: AUTOPAY (accounting/recurring bills), BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if counterparty has mixed USD/PLN rows
