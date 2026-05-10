@@ -4,10 +4,8 @@ import { PeriodSelector }         from "@/components/insights/PeriodSelector";
 import { InsightsMonthlyChart }   from "@/components/insights/InsightsMonthlyChart";
 import { SavingsRateTrendCard }   from "@/components/insights/SavingsRateTrendCard";
 import { LifestyleInflationCard } from "@/components/insights/LifestyleInflationCard";
-import { SpendVelocityCard }      from "@/components/insights/SpendVelocityCard";
 import { CategoryDeltasTable }    from "@/components/insights/CategoryDeltasTable";
 import { NewMerchantsCard }       from "@/components/insights/NewMerchantsCard";
-import { PredictionTable }        from "@/components/insights/PredictionTable";
 import { AnomaliesPanel }         from "@/components/insights/AnomaliesPanel";
 import { RecurringCostsCard }     from "@/components/insights/RecurringCostsCard";
 import { FixedVsVariableCard }    from "@/components/insights/FixedVsVariableCard";
@@ -57,21 +55,20 @@ export default async function InsightsPage({
 
   const [
     summaryRes, monthlyRes,
-    velocity, deltas, predict, anomalies,
+    deltas, anomalies,
     dow, businessSplit, incomeSources, categoryTrends,
     recurringSummary, topTransactions, newMerchants,
   ] = await Promise.allSettled([
     api.summary(months), api.monthly(months),
-    api.velocity(), api.deltas(),
-    api.predict(months), api.anomalies(months),
+    api.deltas(), api.anomalies(months),
     api.dow(months), api.businessSplit(months),
     api.incomeSources(months), api.categoryTrends(months),
     api.recurringSummary(months), api.topTransactions(10, months),
     api.newMerchants(),
   ]);
 
-  const hasSummary   = summaryRes.status === "fulfilled" && Object.keys(summaryRes.value).length > 0;
-  const hasMonthly   = monthlyRes.status === "fulfilled" && monthlyRes.value.length > 0;
+  const hasSummary   = summaryRes.status   === "fulfilled" && Object.keys(summaryRes.value).length > 0;
+  const hasMonthly   = monthlyRes.status   === "fulfilled" && monthlyRes.value.length > 0;
   const hasRecurring = recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0;
 
   return (
@@ -85,23 +82,6 @@ export default async function InsightsPage({
           <PeriodSelector />
         </Suspense>
       </div>
-
-      {/* ── THIS MONTH ──────────────────────────────────────────────── */}
-      {(velocity.status === "fulfilled" || deltas.status === "fulfilled" || newMerchants.status === "fulfilled") && (
-        <Section title="This Month" subtitle="How you're tracking right now">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {velocity.status === "fulfilled" && Object.keys(velocity.value).length > 0 && (
-              <SpendVelocityCard data={velocity.value} />
-            )}
-            {deltas.status === "fulfilled" && deltas.value.length > 0 && (
-              <CategoryDeltasTable data={deltas.value} />
-            )}
-            {newMerchants.status === "fulfilled" && newMerchants.value.length > 0 && (
-              <NewMerchantsCard data={newMerchants.value} />
-            )}
-          </div>
-        </Section>
-      )}
 
       {/* ── STRUCTURAL BASELINE ─────────────────────────────────────── */}
       {(hasRecurring || incomeSources.status === "fulfilled" || businessSplit.status === "fulfilled") && (
@@ -124,17 +104,17 @@ export default async function InsightsPage({
       )}
 
       {/* ── TRENDS ──────────────────────────────────────────────────── */}
-      {(hasMonthly || categoryTrends.status === "fulfilled" || predict.status === "fulfilled") && (
+      {(hasMonthly || categoryTrends.status === "fulfilled" || deltas.status === "fulfilled") && (
         <Section title="Trends" subtitle="Is your situation improving or deteriorating?">
           {hasMonthly && <InsightsMonthlyChart data={monthlyRes.value} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hasMonthly && <SavingsRateTrendCard data={monthlyRes.value} />}
             {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
+            {deltas.status === "fulfilled" && deltas.value.length > 0 && (
+              <CategoryDeltasTable data={deltas.value} />
+            )}
             {categoryTrends.status === "fulfilled" && categoryTrends.value.length > 0 && (
               <CategoryTrendsTable data={categoryTrends.value} />
-            )}
-            {predict.status === "fulfilled" && predict.value.length > 0 && (
-              <PredictionTable data={predict.value} />
             )}
           </div>
         </Section>
@@ -150,14 +130,17 @@ export default async function InsightsPage({
       )}
 
       {/* ── EVENTS & ALERTS ─────────────────────────────────────────── */}
-      {(anomalies.status === "fulfilled" || topTransactions.status === "fulfilled") && (
-        <Section title="Events & Alerts" subtitle="Unusual or one-off transactions worth reviewing">
+      {(anomalies.status === "fulfilled" || topTransactions.status === "fulfilled" || newMerchants.status === "fulfilled") && (
+        <Section title="Events & Alerts" subtitle="Unusual, notable, or one-off transactions worth reviewing">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {anomalies.status === "fulfilled" && (
               <AnomaliesPanel data={anomalies.value} />
             )}
             {topTransactions.status === "fulfilled" && topTransactions.value.length > 0 && (
               <TopTransactionsCard data={topTransactions.value} />
+            )}
+            {newMerchants.status === "fulfilled" && newMerchants.value.length > 0 && (
+              <NewMerchantsCard data={newMerchants.value} />
             )}
           </div>
         </Section>

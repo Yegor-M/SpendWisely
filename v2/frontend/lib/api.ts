@@ -54,7 +54,19 @@ export type Transaction = {
 };
 
 export type Prediction = {
-  category: string; predicted_spend: number; avg_historical: number; confidence: string;
+  category: string;
+  predicted_spend: number;
+  avg_historical: number;
+  confidence: string;
+  cv: number;
+  last_month_actual: number;
+  delta_vs_last: number;
+  trend_direction: "up" | "down" | "stable";
+  trend_pct: number;
+  range_low: number;
+  range_high: number;
+  months_observed: number;
+  history: { month: string; amount: number }[];
 };
 
 export type DowPattern = {
@@ -113,6 +125,32 @@ export type RecurringSummary = {
   total_monthly_recurring: number;
   item_count: number;
   items: Array<Recurring & { monthly_equiv: number }>;
+};
+
+export type CommitmentType = "fixed" | "habit" | "other";
+
+export type BudgetTransaction = {
+  id: string; booking_date: string; counterparty: string; title: string;
+  category: string; abs_amount: number;
+  is_recurring: boolean; recurring_period: string | null;
+  commitment_type: CommitmentType;
+};
+
+export type ExpectedRecurring = {
+  counterparty: string; amount: number; period: string; category: string;
+  commitment_type: CommitmentType;
+};
+
+export type ThisMonthData = {
+  month: string;
+  income: number;
+  fixed_paid: number;
+  habit_paid: number;
+  other_paid: number;
+  fixed_expected: number;
+  habit_expected: number;
+  transactions: BudgetTransaction[];
+  expected_recurrings: ExpectedRecurring[];
 };
 
 export type UncategorizedGroup = {
@@ -182,6 +220,7 @@ export const api = {
   topTransactions: (n = 10, months?: number) => get<TopTransaction[]>("/insights/top-transactions", { n, ...(months ? { months } : {}) }),
   newMerchants:    ()                => get<NewMerchant[]>("/insights/new-merchants"),
   recurringSummary:(months?: number) => get<RecurringSummary>("/insights/recurring-summary", months ? { months } : undefined),
+  thisMonthTx:     (month?: string)  => get<ThisMonthData>("/insights/this-month-transactions", month ? { month } : undefined),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
