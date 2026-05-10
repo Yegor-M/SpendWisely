@@ -80,3 +80,20 @@ FastAPI sync route handlers run in a thread pool. The dashboard fires 5 simultan
 **Why:** The dashboard went from 708ms to 5-minute hangs after adding concurrent SSR calls. All threads blocked on the shared connection. Serializing with `threading.Lock` + switching from `fetchall()` to `.df()` (native Arrow export) reduced concurrent load to 208ms.
 **Tradeoff:** Requests queue behind the lock rather than run in parallel. With the current dataset size (~600 rows), each `_load_df()` takes ~20ms so queue depth is negligible. If the dataset grows significantly, consider per-request read-only connections instead.
 **Gotcha:** `docker compose restart` re-uses old env — must use `docker compose up -d` to apply env changes to a running container.
+
+## Salary month attribution via thruMMMDD title parsing
+Pekao salary payments sometimes arrive a day before the month starts (e.g. May salary posted April 30). Without correction, monthly income figures are off by a full salary for two consecutive months.
+**Why:** The title field contains the pay-period end date as `thruApr30`, `thruMay1`, etc. — this is more authoritative than booking_date for income attribution. `_salary_month()` in `parser.py` parses this and returns the corrected month. Applied in `parse_csv()` for all future imports.
+**Tradeoff:** Only fires on `direction=income` rows with `thruMMMDD` in title — no effect on other transactions. Year rollover (Jan booking + Dec thru) is handled explicitly.
+**Gotcha:** Existing records in DuckDB are not retroactively corrected by the parser change — misattributed historical rows must be patched via a one-off SQL UPDATE or admin endpoint.
+
+## Commitment type classification — three-tier with always-habit categories
+The Plan page needs to categorise each transaction as a bill (fixed), regular habit (habit), or one-off (other). Pure recurring-detection misclassifies grocery stores (irregular per-location but habitual by nature) and food delivery (sometimes recurring but often one-time).
+**Why:** Split into three sets: `FIXED_CATS` always→fixed (rent, subscriptions, taxes); `ALWAYS_HABIT_CATS` (Groceries, Transport, Coffee, Personal Care) always→habit regardless of whether the exact counterparty is detected as recurring; `RECURRING_HABIT_CATS` (Food & Dining, Shopping, etc.) only→habit if the counterparty has a recurring signal. Everything else non-recurring→other.
+**Tradeoff:** `ALWAYS_HABIT_CATS` means a one-time grocery trip at an unfamiliar store is still classified as "habit". Acceptable — groceries are genuinely habitual spending even if the location varies.
+**Gotcha:** High-regularity (≥0.80) recurring items not in either HABIT set are promoted to "fixed". This could misclassify a frequent ATM withdrawal as a bill.
+
+## Insights / Plan tab split
+The `/insights` page mixed backward-looking history (trends, anomalies) with forward-looking planning (velocity, predictions). This made both sections less useful.
+**Why:** Split into `/insights` (what happened) and `/plan` (what's coming + current month status). Each page now has a clear mental model. SpendVelocityCard and PredictionTable moved to Plan; CategoryDeltasTable and NewMerchantsCard moved within Insights.
+**Tradeoff:** Two fetches for pages that previously shared data (velocity was fetched in insights). Minimal cost since both pages use `force-dynamic` and SSR anyway.

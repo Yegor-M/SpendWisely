@@ -43,6 +43,18 @@ _OWN_TRANSFER_PATTERN = re.compile(
     r"(przelew własny|przelew między rachunkami|transfer wewnętrzny)", re.IGNORECASE
 )
 
+# Salary titles contain an explicit pay-period end date: "thruApr30", "thruMay1", etc.
+# Used to attribute early-posted income to the correct month when booking_date is in the
+# previous month (e.g. May salary posted April 30 → belongs to May).
+_SALARY_THRU_RE = re.compile(
+    r"thru(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(\d+)",
+    re.IGNORECASE,
+)
+_MONTH_ABBR = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
 # Counterparty derivation from title when blank
 _TITLE_COUNTERPARTY_HINTS = [
     (re.compile(r"wymiana walut.*?(usd|eur|gbp|chf)", re.IGNORECASE), lambda m: f"FX Exchange {m.group(1).upper()}"),
@@ -77,6 +89,30 @@ def _norm(x) -> str:
 def _make_id(row: pd.Series) -> str:
     key = f"{row.get('booking_date','')}{row.get('reference','')}{row.get('amount','')}{row.get('currency','')}"
     return hashlib.sha1(key.encode()).hexdigest()[:16]
+
+
+def _salary_month(booking_date: pd.Timestamp, direction: str, title: str, current_month: str) -> str:
+    """
+    If an income row's title contains 'thruMMMDD', the pay period end month is
+    authoritative. Corrects early-posted salaries (e.g. May 1 salary lands Apr 30).
+    Only fires when the thru-month differs from booking_date month.
+    """
+    if direction != "income" or not title or pd.isna(booking_date):
+        return current_month
+    m = _SALARY_THRU_RE.search(title)
+    if not m:
+        return current_month
+    thru_month = _MONTH_ABBR[m.group(1).lower()]
+    bd_month   = booking_date.month
+    if thru_month == bd_month:
+        return current_month
+    # Determine year: cross-month boundary in either direction
+    year = booking_date.year
+    if bd_month == 1 and thru_month == 12:
+        year -= 1  # Jan booking for Dec period (e.g. thruDec31 posted Jan 5)
+    elif bd_month == 12 and thru_month == 1:
+        year += 1  # Dec booking for Jan period (edge case)
+    return f"{year}-{thru_month:02d}"
 
 
 def _derive_counterparty(counterparty: str, title: str) -> str:
@@ -131,6 +167,11 @@ def parse_csv(path: str | Path, owner_name: str = "") -> pd.DataFrame:
     df["direction"] = df["amount"].apply(lambda v: "expense" if v < 0 else "income")
     df["abs_amount"] = df["amount"].abs()
     df["month"] = df["booking_date"].dt.to_period("M").astype(str)
+    # Correct month for income rows with explicit pay-period end date in title
+    df["month"] = df.apply(
+        lambda r: _salary_month(r["booking_date"], r["direction"], r["title"], r["month"]),
+        axis=1,
+    )
     df["category"] = "Uncategorized"
     df["counterparty"] = df.apply(
         lambda r: _derive_counterparty(r["counterparty"], r["title"]), axis=1

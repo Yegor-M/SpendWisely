@@ -1,5 +1,6 @@
 "use client";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { useState } from "react";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CategoryBreakdown } from "@/lib/api";
 
@@ -20,8 +21,29 @@ const PALETTE = [
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n) + " PLN";
 
+const totalFmt = (n: number) =>
+  new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
+
 export function CategoryPie({ data }: { data: CategoryBreakdown[] }) {
   const top = data.slice(0, 10);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const totalSpend = top.reduce((s, d) => s + d.total_spent, 0);
+  const anySelected = selected.size > 0;
+  const selectedPct = anySelected
+    ? Math.round(top.filter((_, i) => selected.has(i)).reduce((s, d) => s + d.share_pct, 0) * 10) / 10
+    : null;
+  const selectedSpend = anySelected
+    ? top.filter((_, i) => selected.has(i)).reduce((s, d) => s + d.total_spent, 0)
+    : null;
+
+  function toggle(idx: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  }
 
   return (
     <Card>
@@ -29,49 +51,75 @@ export function CategoryPie({ data }: { data: CategoryBreakdown[] }) {
         <CardTitle>Spending by Category</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-4 items-center">
-          <div className="shrink-0">
-            <ResponsiveContainer width={180} height={180}>
-              <PieChart>
-                <Pie
-                  data={top}
-                  dataKey="total_spent"
-                  nameKey="category"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={52}
-                  outerRadius={88}
-                  paddingAngle={2}
-                  strokeWidth={0}
-                >
-                  {top.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(1 0 0)",
-                    border: "1px solid oklch(0.908 0.006 75)",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 16px oklch(0 0 0 / 0.08)",
-                    fontSize: 12,
-                  }}
-                  formatter={(v) => fmt(Number(v))}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="flex gap-5 items-start">
+          <div className="relative shrink-0" style={{ width: 200, height: 200 }}>
+            <PieChart width={200} height={200} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+              <Pie
+                data={top}
+                dataKey="total_spent"
+                nameKey="category"
+                cx={100}
+                cy={100}
+                innerRadius={58}
+                outerRadius={92}
+                paddingAngle={2}
+                strokeWidth={0}
+                onClick={(_: unknown, idx: number) => toggle(idx)}
+                style={{ cursor: "pointer" }}
+              >
+                {top.map((_, i) => (
+                  <Cell
+                    key={i}
+                    fill={PALETTE[i % PALETTE.length]}
+                    opacity={!anySelected || selected.has(i) ? 1 : 0.2}
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  background: "oklch(1 0 0)",
+                  border: "1px solid oklch(0.908 0.006 75)",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 16px oklch(0 0 0 / 0.08)",
+                  fontSize: 12,
+                }}
+                formatter={(v) => fmt(Number(v))}
+              />
+            </PieChart>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none px-3 text-center">
+              {anySelected ? (
+                <>
+                  <span className="text-2xl font-semibold leading-tight">{selectedPct}%</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">{totalFmt(selectedSpend!)} PLN</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground">total</span>
+                  <span className="text-lg font-semibold leading-tight">{totalFmt(totalSpend)}</span>
+                  <span className="text-xs text-muted-foreground">PLN</span>
+                </>
+              )}
+            </div>
           </div>
-          <div className="flex-1 space-y-1.5 min-w-0">
-            {top.map((d, i) => (
-              <div key={d.category} className="flex items-center gap-2 text-sm">
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: PALETTE[i % PALETTE.length] }}
-                />
-                <span className="truncate text-[13px] flex-1">{d.category}</span>
-                <span className="text-[12px] text-muted-foreground shrink-0">{d.share_pct}%</span>
-              </div>
-            ))}
+          <div className="flex-1 space-y-1.5 min-w-0 pt-1">
+            {top.map((d, i) => {
+              const isActive = selected.has(i);
+              return (
+                <div
+                  key={d.category}
+                  className="flex items-center gap-2 text-sm cursor-pointer"
+                  onClick={() => toggle(i)}
+                  style={{ opacity: !anySelected || isActive ? 1 : 0.35 }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: PALETTE[i % PALETTE.length] }}
+                  />
+                  <span className="truncate text-[13px] flex-1">{d.category}</span>
+                  <span className="text-[12px] text-muted-foreground shrink-0">{d.share_pct}%</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </CardContent>
