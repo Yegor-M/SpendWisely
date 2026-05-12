@@ -132,7 +132,7 @@ def get_this_month_transactions(month: Optional[str] = None):
 
     # Build recurring counterparty → full item map from full history
     recurring_items = svc.detect_recurring(df)
-    recurring_map: dict = {r["counterparty"]: r for r in recurring_items}
+    recurring_map: dict = {r["counterparty"].lower(): r for r in recurring_items}
 
     # Commitment classification:
     # "fixed"       — true bills: rent, subscriptions, utilities, ISP, healthcare
@@ -184,7 +184,7 @@ def get_this_month_transactions(month: Optional[str] = None):
     for _, row in exp.iterrows():
         cp  = row["counterparty"]
         cat = row["category"]
-        rec = recurring_map.get(cp)
+        rec = recurring_map.get(cp.lower())
         is_recurring = rec is not None
         period       = rec["period"] if rec else None
         regularity   = float(rec["regularity"]) if rec else 0.0
@@ -195,7 +195,7 @@ def get_this_month_transactions(month: Optional[str] = None):
         elif ctype == "habit": habit_paid += amount
         else:                  other_paid += amount
 
-        seen_counterparties.add(cp)
+        seen_counterparties.add(cp.lower())
         txs.append({
             "id":               row["id"],
             "booking_date":     str(row["booking_date"])[:10],
@@ -212,7 +212,7 @@ def get_this_month_transactions(month: Optional[str] = None):
     monthly_periods = {"Monthly", "Bi-weekly"}
     expected = []
     for r in recurring_items:
-        if r["period"] not in monthly_periods or r["counterparty"] in seen_counterparties:
+        if r["period"] not in monthly_periods or r["counterparty"].lower() in seen_counterparties:
             continue
         ctype = _commitment(r["category"], float(r["regularity"]), True)
         expected.append({
