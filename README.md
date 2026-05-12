@@ -23,79 +23,11 @@ Personal finance tracker built on bank CSV exports. Understand your spending to 
 
 ## Getting started
 
-### Quick setup
-
 ```bash
 git clone https://github.com/Yegor-M/SpendWisely.git
 cd SpendWisely
-bash setup.sh
-```
-
-`setup.sh` creates the Python virtualenv, installs all dependencies, copies `.env.example` → `.env`, and prints the start commands. Open `v2/backend/.env` and set your `ANTHROPIC_API_KEY`, then run:
-
-```bash
-# Terminal 1
-cd v2/backend && source .venv/bin/activate && uvicorn app.main:app --reload
-
-# Terminal 2
-cd v2/frontend && npm run dev
-```
-
-Open `http://localhost:3000`, click **Import Bank CSV**, and drop in your export.
-
----
-
-> **Manual steps below** — only needed if `setup.sh` doesn't work for you or you want more control.
-
-### 1. Clone
-
-```bash
-git clone https://github.com/Yegor-M/SpendWisely.git
-cd SpendWisely
-```
-
-### 2. Backend
-
-```bash
-cd v2/backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env
-# edit .env — set ANTHROPIC_API_KEY (and optionally LLM_PROVIDER / OWNER_NAME)
-
-uvicorn app.main:app --reload
-# API docs → http://localhost:8000/docs
-```
-
-### 3. Frontend
-
-```bash
-cd v2/frontend
-npm install
-npm run dev
-# → http://localhost:3000
-```
-
-### 4. Import your data
-
-Open `http://localhost:3000`, click **Import Bank CSV**, and drop in your Pekao export. A review modal appears for any uncategorized merchants — assign categories, save rules, and let future imports categorise automatically.
-
-Or via API:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/ingest \
-  -F "file=@data/export.csv" \
-  -F "use_llm=true"
-```
-
-## Docker
-
-### Local development (hot reload)
-
-```bash
 cp v2/backend/.env.example v2/backend/.env
-# add ANTHROPIC_API_KEY to v2/backend/.env
+# edit v2/backend/.env — set ANTHROPIC_API_KEY
 
 docker compose up --build
 # frontend → http://localhost:3000
@@ -104,7 +36,9 @@ docker compose up --build
 
 Source files are mounted as volumes — Python and TypeScript changes are picked up without rebuilding.
 
-### Server deployment
+Open `http://localhost:3000`, click **Import Bank CSV**, and drop in your export. A review modal surfaces any uncategorized merchants with AI suggestions.
+
+## Server deployment
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -115,6 +49,21 @@ docker compose -f docker-compose.prod.yml up -d --build
 TLS: drop `fullchain.pem` and `privkey.pem` into `docker/nginx/certs/` and uncomment the HTTPS block in `docker/nginx/nginx.conf`.
 
 The DuckDB file is persisted in a named Docker volume (`spendwisely_db`) and survives container restarts.
+
+## Without Docker
+
+> Use this if you can't run Docker locally.
+
+```bash
+bash setup.sh   # creates venv, installs deps, copies .env.example
+# edit v2/backend/.env — set ANTHROPIC_API_KEY
+
+# Terminal 1
+cd v2/backend && source .venv/bin/activate && uvicorn app.main:app --reload
+
+# Terminal 2
+cd v2/frontend && npm run dev
+```
 
 ## Environment variables
 
