@@ -93,6 +93,12 @@ The Plan page needs to categorise each transaction as a bill (fixed), regular ha
 **Tradeoff:** `ALWAYS_HABIT_CATS` means a one-time grocery trip at an unfamiliar store is still classified as "habit". Acceptable — groceries are genuinely habitual spending even if the location varies.
 **Gotcha:** High-regularity (≥0.80) recurring items not in either HABIT set are promoted to "fixed". This could misclassify a frequent ATM withdrawal as a bill.
 
+## Stale-flag pattern for debounced filter effects
+Client-side search/filter in `TransactionsTable` debounces API calls with `setTimeout`. Multiple effects can fire before the previous fetch settles.
+**Why:** Using `setLoading(false)` in the effect cleanup (the obvious pattern) causes a race: if a fetch is in-flight when cleanup runs, a subsequent effect's `setLoading(true)` is cancelled by the old fetch's `.finally()`, leaving the UI stuck with no loading indicator while a new fetch is running. The `stale` boolean flag is set to `true` in cleanup, making `.then()` and `.finally()` of any in-flight request no-ops.
+**Tradeoff:** Does not actually cancel in-flight HTTP requests — they complete and are discarded. An AbortController approach would cancel them at the network level but requires threading a signal through the api layer. Acceptable for low-traffic personal use.
+**Gotcha:** Never call `setLoading(false)` in a `useEffect` cleanup when a fetch may be in-flight from the same effect. Only the current (non-stale) effect's `.finally()` should own that state transition.
+
 ## Insights / Plan tab split
 The `/insights` page mixed backward-looking history (trends, anomalies) with forward-looking planning (velocity, predictions). This made both sections less useful.
 **Why:** Split into `/insights` (what happened) and `/plan` (what's coming + current month status). Each page now has a clear mental model. SpendVelocityCard and PredictionTable moved to Plan; CategoryDeltasTable and NewMerchantsCard moved within Insights.
