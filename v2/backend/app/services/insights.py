@@ -448,7 +448,33 @@ def spend_velocity(df: pd.DataFrame) -> dict:
     day_pct = days_elapsed / days_in_month
 
     spent_so_far = float(current["abs_amount"].sum())
-    projected_eom = round(spent_so_far / day_pct, 2) if day_pct > 0 else 0.0
+
+    # Split current spend into fixed bills vs variable daily spending.
+    # Fixed bills are one-shots that won't repeat linearly; only project variable.
+    FIXED_CATS = {"Subscriptions", "Rent & Housing", "Utilities", "Healthcare",
+                  "Accounting", "Insurance", "Education", "Phone & Internet", "Taxes"}
+    recurring_items = detect_recurring(df)
+    monthly_recurring = [r for r in recurring_items if r["period"] in {"Monthly", "Bi-weekly"}]
+    paid_cps = set(current["counterparty"].str.lower())
+
+    # Bills paid so far this month that are fixed-category recurring items
+    rec_cps_lower = {r["counterparty"].lower() for r in monthly_recurring}
+    current["_fixed"] = (
+        current["category"].isin(FIXED_CATS) |
+        current["counterparty"].str.lower().isin(rec_cps_lower)
+    )
+    fixed_paid   = float(current[current["_fixed"]]["abs_amount"].sum())
+    variable_paid = float(current[~current["_fixed"]]["abs_amount"].sum())
+
+    # Expected fixed bills not yet paid this month
+    expected_fixed = sum(
+        r["amount"] for r in monthly_recurring
+        if r["category"] in FIXED_CATS and r["counterparty"].lower() not in paid_cps
+    )
+
+    # Project only variable spend linearly; add known fixed obligations
+    variable_projected = (variable_paid / day_pct) if day_pct > 0 else 0.0
+    projected_eom = round(fixed_paid + expected_fixed + variable_projected, 2)
 
     avg_prior = float(prior.groupby("month")["abs_amount"].sum().mean()) if not prior.empty else 0.0
     vs_avg_pct = round((projected_eom - avg_prior) / avg_prior * 100, 1) if avg_prior > 0 else None
