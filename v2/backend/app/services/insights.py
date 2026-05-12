@@ -260,7 +260,24 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
             continue
         records.append(_recurring_entry(unc, cp, dates, gaps))
 
-    return sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"]))
+    # Deduplicate name variants: same merchant registered under slightly different
+    # counterparty strings (e.g. "IMPLANT ART SP Z OO 00670 WARSZA" vs
+    # "IMPLANT ART WARSZAWA").  Key on first 10 chars after whitespace collapse +
+    # category + amount bucket — tight enough to avoid merging different merchants.
+    def _dedup_key(r: dict) -> tuple:
+        cp = re.sub(r'\s+', ' ', r["counterparty"]).strip()[:10].lower()
+        return (cp, r["category"], _amount_bucket(r["amount"]))
+
+    seen_keys: dict[tuple, int] = {}  # key → index in deduped
+    deduped: list[dict] = []
+    for r in sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"])):
+        key = _dedup_key(r)
+        if key not in seen_keys:
+            seen_keys[key] = len(deduped)
+            deduped.append(r)
+        # else: discard the variant with fewer occurrences (already sorted lower)
+
+    return deduped
 
 
 # ---------------------------------------------------------------------------
