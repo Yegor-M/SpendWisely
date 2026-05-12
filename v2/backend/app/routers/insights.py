@@ -111,6 +111,15 @@ def get_recurring_summary(months: Optional[int] = None):
     return svc.recurring_summary(_period(_load_df(), months))
 
 
+@router.get("/daily-spend")
+def get_daily_spend(month: Optional[str] = None):
+    from datetime import date as _date
+    df = _load_df()
+    if month is None:
+        month = _date.today().strftime("%Y-%m")
+    return svc.daily_spend_by_category(df, month)
+
+
 @router.get("/this-month-transactions")
 def get_this_month_transactions(month: Optional[str] = None):
     df = _load_df()
