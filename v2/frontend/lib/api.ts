@@ -191,6 +191,13 @@ export type BulkCategorizeResult = {
   additionally_categorized: number;
 };
 
+export type TransactionAggregate = {
+  count: number;
+  total_expenses: number;
+  total_income: number;
+  net: number;
+};
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(
     (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
@@ -230,6 +237,8 @@ export const api = {
   thisMonthTx:     (month?: string)  => get<ThisMonthData>("/insights/this-month-transactions", month ? { month } : undefined),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
+  transactionsAggregate: (params?: Record<string, string | number | boolean>) =>
+    get<TransactionAggregate>("/transactions/aggregate", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
   listCategories: () => get<string[]>("/categories"),
   suggestCategories: (items: Array<{ id: string; counterparty: string; title: string; abs_amount: number }>) =>

@@ -16,20 +16,18 @@ def _row_to_tx(row) -> dict:
     return dict(zip(keys, row))
 
 
-@router.get("", response_model=list[Transaction])
-def list_transactions(
-    month: Optional[str]      = Query(None, description="YYYY-MM"),
-    category: Optional[str]   = Query(None),
-    direction: Optional[str]  = Query(None, description="expense|income|internal"),
-    currency: Optional[str]   = Query(None),
-    search: Optional[str]     = Query(None),
-    include_internal: bool     = Query(False),
-    limit: int                 = Query(500, le=2000),
-    offset: int                = Query(0),
-):
-    clauses = []
-    params = []
-
+def _build_filters(
+    month: Optional[str],
+    category: Optional[str],
+    direction: Optional[str],
+    currency: Optional[str],
+    search: Optional[str],
+    min_amount: Optional[float],
+    max_amount: Optional[float],
+    include_internal: bool,
+) -> tuple[list[str], list]:
+    clauses: list[str] = []
+    params: list = []
     if not include_internal:
         clauses.append("is_internal = FALSE")
     if month:
@@ -47,7 +45,60 @@ def list_transactions(
     if search:
         clauses.append("(LOWER(counterparty) LIKE ? OR LOWER(title) LIKE ?)")
         params += [f"%{search.lower()}%", f"%{search.lower()}%"]
+    if min_amount is not None:
+        clauses.append("abs_amount >= ?")
+        params.append(min_amount)
+    if max_amount is not None:
+        clauses.append("abs_amount <= ?")
+        params.append(max_amount)
+    return clauses, params
 
+
+@router.get("/aggregate")
+def aggregate_transactions(
+    month: Optional[str]      = Query(None),
+    category: Optional[str]   = Query(None),
+    direction: Optional[str]  = Query(None),
+    currency: Optional[str]   = Query(None),
+    search: Optional[str]     = Query(None),
+    min_amount: Optional[float] = Query(None),
+    max_amount: Optional[float] = Query(None),
+    include_internal: bool     = Query(False),
+):
+    clauses, params = _build_filters(month, category, direction, currency, search, min_amount, max_amount, include_internal)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    with db() as conn:
+        row = conn.execute(
+            f"""SELECT
+                  COUNT(*),
+                  COALESCE(SUM(CASE WHEN direction='expense' THEN abs_amount ELSE 0 END), 0),
+                  COALESCE(SUM(CASE WHEN direction='income'  THEN abs_amount ELSE 0 END), 0)
+                FROM transactions {where}""",
+            params,
+        ).fetchone()
+    total_expenses, total_income = row[1], row[2]
+    return {
+        "count": row[0],
+        "total_expenses": total_expenses,
+        "total_income": total_income,
+        "net": total_income - total_expenses,
+    }
+
+
+@router.get("", response_model=list[Transaction])
+def list_transactions(
+    month: Optional[str]        = Query(None, description="YYYY-MM"),
+    category: Optional[str]     = Query(None),
+    direction: Optional[str]    = Query(None, description="expense|income|internal"),
+    currency: Optional[str]     = Query(None),
+    search: Optional[str]       = Query(None),
+    min_amount: Optional[float] = Query(None),
+    max_amount: Optional[float] = Query(None),
+    include_internal: bool       = Query(False),
+    limit: int                   = Query(500, le=2000),
+    offset: int                  = Query(0),
+):
+    clauses, params = _build_filters(month, category, direction, currency, search, min_amount, max_amount, include_internal)
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     with db() as conn:
         rows = conn.execute(

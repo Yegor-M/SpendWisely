@@ -40,7 +40,7 @@ v2/frontend/
   components/dashboard/ SummaryCards, MonthlyChart, CategoryPie (multi-select), TopMerchants, RecurringList
   components/insights/  Insight panels: Deltas, PredictionTable (rich), Anomalies, DOW, BizSplit, Income, Trends
   components/plan/      ThisMonthChecklist — Bills/Daily/One-time sections with paid/total in headers
-  components/TransactionsTable.tsx  Client component with useTransition load-more (PAGE=200)
+  components/TransactionsTable.tsx  Client component — search/filter bar, load-more (PAGE=200), aggregate footer
   components/ImportReview.tsx  Post-import modal: group table, AI suggest (Haiku), bulk-categorize + rule save
   lib/api.ts            All API calls — single source of truth
 v1/                     Legacy pipeline — do not extend, reference only
@@ -73,6 +73,8 @@ data/                   Gitignored — personal bank CSV exports
 - Auto-generated rules use `priority=5` and comment `"auto:{counterparty}"` so they are distinguishable from hand-crafted rules.
 - Commitment classification (plan page): `FIXED_CATS` always→fixed; `ALWAYS_HABIT_CATS` (Groceries, Transport, Coffee, Personal Care) always→habit regardless of recurring detection; `RECURRING_HABIT_CATS` (Food & Dining, Shopping, etc.) only→habit if recurring; everything else non-recurring→other.
 - `GET /insights/this-month-transactions` uses `svc._implied_fx_rate(df)` to convert USD income to PLN — same as all other income endpoints.
+- `GET /transactions/aggregate` returns `{count, total_expenses, total_income, net}` for any filter combination — same params as `GET /transactions` minus limit/offset. Used by the transactions page footer.
+- `TransactionsTable` filter effect uses a `stale` boolean flag (not AbortController) to ignore responses from cancelled effect runs. Never call `setLoading(false)` in the cleanup — only the current effect's `.finally()` should clear loading state.
 
 ## DB schema
 ```
@@ -84,13 +86,18 @@ category_rules: id, category, pattern, fields[], priority, comment
 ```
 
 ## Next Objectives
-- [ ] Merge PR #1 (Docker)
-- [ ] Merge PR #2 (Universal LLM)
-- [ ] Merge PR #3 (Insights page — includes redesign, USD income, loading skeletons, SSR fix)
-- [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service (same SSR bug as dev compose had)
+- [x] Docker setup (PR #1)
+- [x] Universal LLM provider (PR #2)
+- [x] Insights page — velocity, deltas, predictions, anomalies, USD income, loading skeletons, SSR fix (PR #3)
+- [x] Delete all transactions button (PR #4)
 - [x] Post-import review modal with AI suggestions and dynamic rules (PR #5)
-- [x] Plan tab — ThisMonthChecklist, salary month attribution, load-more transactions, prediction panel enrichment (PR #7 — open on feat/prediction-panel-v2)
-- [ ] Expand regex rules for uncategorized merchants: AUTOPAY, BINANCE, personal transfers (MASHA etc), ADMINISTRATRACJA
+- [x] Insights overhaul — new cards, sidebar, period filter, daily chart, Earn tab (PR #6)
+- [x] Dashboard polish — monthly net balance, sidebar width, favicon (PR #7)
+- [x] Plan tab, enriched predictions, salary month fix, load-more transactions (PR #8)
+- [x] Recurring split, EOM projection fix, expected income, daily spend chart (PR #9)
+- [x] Transactions tab search/filter + aggregate footer
+- [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service env
+- [ ] Expand regex rules: BINANCE, personal transfers (MASHA etc), ADMINISTRATRACJA, SZOPEX
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Category edit inline on transactions page
