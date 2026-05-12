@@ -14,7 +14,8 @@ data/
 # Data outputs (generated, not source)
 v1/app/output/
 
-# Jupyter
+# Jupyter — may contain transaction data in cell outputs
+v1/app/playground.ipynb
 .ipynb_checkpoints/
 
 # macOS
