@@ -5,8 +5,9 @@ import { MonthlyChart }   from "@/components/dashboard/MonthlyChart";
 import { CategoryPie }    from "@/components/dashboard/CategoryPie";
 import { RecurringList }  from "@/components/dashboard/RecurringList";
 import { TopMerchants }   from "@/components/dashboard/TopMerchants";
-import { DashboardTabs }  from "@/components/dashboard/DashboardTabs";
-import { EarnTab }        from "@/components/dashboard/EarnTab";
+import { DashboardTabs }      from "@/components/dashboard/DashboardTabs";
+import { EarnTab }            from "@/components/dashboard/EarnTab";
+import { DailySpendChart }    from "@/components/dashboard/DailySpendChart";
 import { UploadCsv }      from "@/components/UploadCsv";
 import { DeleteAllTransactions } from "@/components/DeleteAllTransactions";
 import { PeriodSelector } from "@/components/insights/PeriodSelector";
@@ -79,6 +80,7 @@ export default async function Dashboard({
           {/* ── Overview tab ───────────────────────────────────────── */}
           {tab === "overview" && (
             <>
+              <DailySpendChart />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {monthly.status    === "fulfilled" && <MonthlyChart data={monthly.value} />}
                 {categories.status === "fulfilled" && <CategoryPie  data={categories.value} />}

@@ -89,33 +89,40 @@ export default async function PlanPage() {
               {hasThisMonth && (
                 <div className="rounded-xl border border-border/50 bg-muted/30 px-5 py-4 flex flex-col gap-2 justify-center">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-widest">Breakdown</p>
-                  {[
-                    { label: "Bills paid",      value: thisMonthRes.value.fixed_paid,                             color: "oklch(0.44 0.165 158)" },
-                    { label: "Bills expected",  value: thisMonthRes.value.fixed_expected,                         color: "oklch(0.70 0.145 90)" },
-                    { label: "Daily & other",   value: thisMonthRes.value.habit_paid + thisMonthRes.value.other_paid, color: "oklch(0.55 0.195 265)" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className="flex items-center justify-between gap-3">
-                      <span className="text-[12px] text-muted-foreground">{label}</span>
-                      <span className="text-[13px] font-semibold tabular-nums" style={{ color }}>
-                        {new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(value)} PLN
-                      </span>
-                    </div>
-                  ))}
-                  <div className="h-px bg-border/50 my-1" />
                   {(() => {
                     const d = thisMonthRes.value;
-                    const net = d.income - d.fixed_paid - d.habit_paid - d.other_paid - d.fixed_expected - d.habit_expected;
+                    const fmt = (n: number) => new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
+                    const incomeReceived = d.income > 0;
+                    const rows = [
+                      incomeReceived
+                        ? { label: "Salary received",  value: d.income,             color: "oklch(0.44 0.165 158)", prefix: "" }
+                        : { label: "Salary expected",  value: d.income_expected,    color: "oklch(0.70 0.145 90)",  prefix: "~" },
+                      { label: "Bills paid",           value: d.fixed_paid,         color: "oklch(0.44 0.165 158)", prefix: "" },
+                      { label: "Bills expected",       value: d.fixed_expected,     color: "oklch(0.70 0.145 90)",  prefix: "" },
+                      { label: "Daily & other",        value: d.habit_paid + d.other_paid, color: "oklch(0.55 0.195 265)", prefix: "" },
+                    ];
+                    const income = incomeReceived ? d.income : d.income_expected;
+                    const net = income - d.fixed_paid - d.habit_paid - d.other_paid - d.fixed_expected - d.habit_expected;
                     const isNeg = net < 0;
                     return (
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[12px] font-semibold">Net left to allocate</span>
-                        <span
-                          className="text-[15px] font-bold tabular-nums"
-                          style={{ color: isNeg ? "oklch(0.58 0.200 25)" : "oklch(0.52 0.185 155)" }}
-                        >
-                          {net >= 0 ? "+" : ""}{new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(net)} PLN
-                        </span>
-                      </div>
+                      <>
+                        {rows.map(({ label, value, color, prefix }) => (
+                          <div key={label} className="flex items-center justify-between gap-3">
+                            <span className="text-[12px] text-muted-foreground">{label}</span>
+                            <span className="text-[13px] font-semibold tabular-nums" style={{ color }}>
+                              {prefix}{fmt(value)} PLN
+                            </span>
+                          </div>
+                        ))}
+                        <div className="h-px bg-border/50 my-1" />
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[12px] font-semibold">Net left to allocate</span>
+                          <span className="text-[15px] font-bold tabular-nums"
+                            style={{ color: isNeg ? "oklch(0.58 0.200 25)" : "oklch(0.52 0.185 155)" }}>
+                            {net >= 0 ? "+" : ""}{fmt(net)} PLN
+                          </span>
+                        </div>
+                      </>
                     );
                   })()}
                 </div>

@@ -22,35 +22,6 @@ function groupByCategory(txs: BudgetTransaction[]) {
     .sort((a, b) => b.total - a.total);
 }
 
-// ── Summary bar ───────────────────────────────────────────────────────────────
-
-function SummaryBar({ data }: { data: ThisMonthData }) {
-  const spent    = data.fixed_paid + data.habit_paid + data.other_paid;
-  const expected = data.fixed_expected + data.habit_expected;
-  const net      = data.income - spent - expected;
-
-  const tiles = [
-    { label: "Income",   value: data.income,                          color: "oklch(0.52 0.185 155)" },
-    { label: "Bills",    value: data.fixed_paid + data.fixed_expected, color: "oklch(0.58 0.200 25)"  },
-    { label: "Spending", value: data.habit_paid + data.other_paid,     color: "oklch(0.55 0.195 265)" },
-    { label: "Free",     value: net, color: net < 0 ? "oklch(0.58 0.200 25)" : "oklch(0.52 0.185 155)" },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-      {tiles.map(({ label, value, color }) => (
-        <div key={label} className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
-          <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
-          <p className="text-[18px] font-semibold tabular-nums leading-tight" style={{ color }}>
-            {label === "Free" && value > 0 ? "+" : ""}{fmt(value)}
-            <span className="text-[11px] font-normal text-muted-foreground ml-1">PLN</span>
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── Row primitives ────────────────────────────────────────────────────────────
 
 function PaidRow({ tx }: { tx: BudgetTransaction }) {
@@ -180,7 +151,6 @@ export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
   const habitGroups = groupByCategory(habits);
   const otherGroups = groupByCategory(oneTime);
 
-  const hasExpected = fixedExpected.length + habitExpected.length > 0;
   const billsTotal  = data.fixed_paid + data.fixed_expected;
   const dailyTotal  = data.habit_paid + data.habit_expected;
 
@@ -200,7 +170,7 @@ export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
       <CardContent className="space-y-4">
 
         {/* ① Bills — paid ✓ + coming up ○ in one place */}
-        {(billsPaid.length > 0 || hasExpected) && (
+        {(billsPaid.length > 0 || fixedExpected.length > 0) && (
           <Section
             label="Bills"
             sublabel="committed this month"
@@ -213,7 +183,7 @@ export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
               {billsPaid.map((tx) => <PaidRow key={tx.id} tx={tx} />)}
             </div>
 
-            {hasExpected && (
+            {fixedExpected.length > 0 && (
               <>
                 {billsPaid.length > 0 && (
                   <div className="flex items-center gap-2 my-3">
@@ -223,7 +193,7 @@ export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
                   </div>
                 )}
                 <div className="divide-y divide-border/30">
-                  {[...fixedExpected, ...habitExpected].map((item, i) => (
+                  {fixedExpected.map((item, i) => (
                     <ExpectedRow key={i} item={item} />
                   ))}
                 </div>
