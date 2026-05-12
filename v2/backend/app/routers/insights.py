@@ -165,9 +165,21 @@ def get_this_month_transactions(month: Optional[str] = None):
         (df["direction"] == "income") &
         (~df["is_internal"])
     ]
-    pln_inc = inc[inc["currency"] == "PLN"]["abs_amount"].sum()
-    usd_inc = inc[inc["currency"] == "USD"]["abs_amount"].sum()
-    income_total = float(pln_inc + usd_inc * rate)
+    pln_inc = float(inc[inc["currency"] == "PLN"]["abs_amount"].sum())
+    usd_inc = float(inc[inc["currency"] == "USD"]["abs_amount"].sum())
+    income_total = pln_inc + usd_inc * rate
+
+    # Expected income: avg prior-month income when nothing has arrived yet this month
+    prior_inc = df[(df["month"] < target_month) & (df["direction"] == "income") & (~df["is_internal"])]
+    if income_total == 0 and not prior_inc.empty:
+        monthly_pln = [
+            float(g[g["currency"] == "PLN"]["abs_amount"].sum()) +
+            float(g[g["currency"] == "USD"]["abs_amount"].sum()) * rate
+            for _, g in prior_inc.groupby("month")
+        ]
+        income_expected = round(float(pd.Series(monthly_pln).mean()), 2)
+    else:
+        income_expected = 0.0
 
     # PLN expenses for the month
     exp = df[
@@ -228,84 +240,15 @@ def get_this_month_transactions(month: Optional[str] = None):
     fixed_expected = sum(e["amount"] for e in expected if e["commitment_type"] == "fixed")
     habit_expected = sum(e["amount"] for e in expected if e["commitment_type"] == "habit")
 
-    # ── Expected income ──────────────────────────────────────────────────────
-    # Detect recurring income sources (salary etc.) and flag those not yet
-    # received this month.
-    real_inc = df[
-        (df["direction"] == "income") &
-        (~df["is_internal"]) &
-        (df["abs_amount"] >= 50)   # skip micro bank credits / interest
-    ].copy()
-
-    inc_received_this_month = inc[inc["abs_amount"] >= 50].copy()
-    paid_income_cps = set(inc_received_this_month["counterparty"].str.lower())
-
-    income_transactions = []
-    for _, row in inc_received_this_month.sort_values("booking_date").iterrows():
-        pln = float(row["abs_amount"]) * (rate if row["currency"] == "USD" else 1.0)
-        income_transactions.append({
-            "id":           row["id"],
-            "booking_date": str(row["booking_date"])[:10],
-            "counterparty": row["counterparty"],
-            "amount":       round(float(row["abs_amount"]), 2),
-            "currency":     row["currency"],
-            "pln_equiv":    round(pln, 0),
-            "category":     row["category"],
-        })
-
-    # Detect recurring income counterparties from history
-    all_months_inc = max(1, real_inc["month"].nunique())
-    min_months_inc = max(2, min(3, int(all_months_inc * 0.4)))
-
-    expected_income = []
-    for cp, grp in real_inc.groupby("counterparty"):
-        if not cp or len(grp) < 2:
-            continue
-        if grp["month"].nunique() < min_months_inc:
-            continue
-        dates = grp["booking_date"].sort_values().dropna()
-        if len(dates) < 2:
-            continue
-        gaps = dates.diff().dt.days.dropna().tolist()
-        avg_gap = float(pd.Series(gaps).mean())
-        period = svc._period_label(avg_gap)
-        if period not in monthly_periods:
-            continue
-
-        # How many payments expected per month vs received so far
-        expected_per_month = 2 if period == "Bi-weekly" else 1
-        received_count = int((inc_received_this_month["counterparty"].str.lower() == cp.lower()).sum())
-        remaining = max(0, expected_per_month - received_count)
-        if remaining == 0:
-            continue
-
-        median_amount = round(float(grp["abs_amount"].median()), 2)
-        currency = grp["currency"].mode().iloc[0]
-        pln_equiv = round(median_amount * (rate if currency == "USD" else 1.0), 0)
-
-        for _ in range(remaining):
-            expected_income.append({
-                "counterparty": cp,
-                "amount":       median_amount,
-                "currency":     currency,
-                "pln_equiv":    pln_equiv,
-                "period":       period,
-            })
-
-    expected_income.sort(key=lambda e: -e["pln_equiv"])
-    income_expected_pln = sum(e["pln_equiv"] for e in expected_income)
-
     return {
-        "month":               target_month,
-        "income":              round(income_total, 2),
-        "income_expected_pln": round(income_expected_pln, 2),
-        "fixed_paid":          round(fixed_paid, 2),
-        "habit_paid":          round(habit_paid, 2),
-        "other_paid":          round(other_paid, 2),
-        "fixed_expected":      round(fixed_expected, 2),
-        "habit_expected":      round(habit_expected, 2),
-        "income_transactions": income_transactions,
-        "expected_income":     expected_income,
-        "transactions":        txs,
+        "month":            target_month,
+        "income":           round(income_total, 2),
+        "income_expected":  income_expected,
+        "fixed_paid":       round(fixed_paid, 2),
+        "habit_paid":       round(habit_paid, 2),
+        "other_paid":       round(other_paid, 2),
+        "fixed_expected":   round(fixed_expected, 2),
+        "habit_expected":   round(habit_expected, 2),
+        "transactions":     txs,
         "expected_recurrings": expected,
     }
