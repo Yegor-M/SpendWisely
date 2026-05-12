@@ -150,8 +150,8 @@ def _amount_bucket(a: float) -> float:
     """Tiered bucketing so variable-amount recurring items (e.g. tax) still group."""
     if a < 50:    return round(a / 0.5) * 0.5
     if a < 200:   return round(a / 5)   * 5
-    if a < 1000:  return round(a / 25)  * 25
-    return             round(a / 100)   * 100
+    if a < 1000:  return (a // 100) * 100   # floor: ±100 PLN tolerance keeps price variations together
+    return             round(a / 500)   * 500  # ±250 PLN tolerance separates distinct large bills
 
 
 def _period_label(avg_gap: float) -> str | None:
@@ -202,26 +202,42 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
     records = []
     seen_idx: set[int] = set()
     all_months_n = max(1, exp["month"].nunique())
+    # Cap at 3: avoids requiring 4+ months for large datasets while staying strict enough
+    min_months = max(2, min(3, int(all_months_n * 0.4)))
 
     # Pass 1 — group by (counterparty, normalised title).
     # Strips dates/refs from the title so "ZUS 01/2025" and "ZUS 02/2025" cluster
     # together, while "ZUS SPOŁECZNE" and "ZUS ZDROWOTNE" stay separate.
+    # When a group straddles the 1 000 PLN boundary (payment-gateway entries that
+    # carry multiple distinct bills, e.g. AUTOPAY BLIK), sub-split by amount bucket
+    # so each bill gets its own recurring entry.
     for (cp, tkey), grp in exp.groupby(["counterparty", "_title_key"]):
         if not cp or len(grp) < min_occurrences:
             continue
-        if grp["month"].nunique() < max(2, all_months_n * 0.4):
-            continue
-        dates = grp["booking_date"].sort_values().dropna()
-        if len(dates) < 2:
-            continue
-        gaps = dates.diff().dt.days.dropna().tolist()
-        if not gaps:
-            continue
-        entry = _recurring_entry(grp, cp, dates, gaps)
-        if _period_label(float(np.mean(gaps))) is None and float(np.mean(gaps)) > 40:
-            continue  # skip clearly irregular
-        records.append(entry)
-        seen_idx.update(grp.index.tolist())
+
+        # Sub-split by amount bucket only for payment-gateway groups whose amounts
+        # span both sub-1 000 and 1 000+ PLN tiers (distinct bills, not price variation).
+        if grp["abs_amount"].max() >= 1000 and grp["abs_amount"].min() < 1000:
+            sub_groups = list(grp.groupby(grp["abs_amount"].apply(_amount_bucket)))
+        else:
+            sub_groups = [(None, grp)]
+
+        for _bk, sgrp in sub_groups:
+            if len(sgrp) < min_occurrences:
+                continue
+            if sgrp["month"].nunique() < min_months:
+                continue
+            dates = sgrp["booking_date"].sort_values().dropna()
+            if len(dates) < 2:
+                continue
+            gaps = dates.diff().dt.days.dropna().tolist()
+            if not gaps:
+                continue
+            entry = _recurring_entry(sgrp, cp, dates, gaps)
+            if _period_label(float(np.mean(gaps))) is None and float(np.mean(gaps)) > 40:
+                continue  # skip clearly irregular
+            records.append(entry)
+            seen_idx.update(sgrp.index.tolist())
 
     # Pass 2 — fallback for transactions not captured above (blank/generic titles).
     # Group solely by counterparty; require monthly cadence and coverage.
@@ -231,7 +247,7 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
         unc = grp[~grp.index.isin(seen_idx)]
         if len(unc) < min_occurrences:
             continue
-        if unc["month"].nunique() < max(2, all_months_n * 0.4):
+        if unc["month"].nunique() < min_months:
             continue
         dates = unc["booking_date"].sort_values().dropna()
         if len(dates) < 2:
@@ -244,7 +260,24 @@ def detect_recurring(df: pd.DataFrame, min_occurrences: int = 2, min_amount: flo
             continue
         records.append(_recurring_entry(unc, cp, dates, gaps))
 
-    return sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"]))
+    # Deduplicate name variants: same merchant registered under slightly different
+    # counterparty strings (e.g. "IMPLANT ART SP Z OO 00670 WARSZA" vs
+    # "IMPLANT ART WARSZAWA").  Key on first 10 chars after whitespace collapse +
+    # category + amount bucket — tight enough to avoid merging different merchants.
+    def _dedup_key(r: dict) -> tuple:
+        cp = re.sub(r'\s+', ' ', r["counterparty"]).strip()[:10].lower()
+        return (cp, r["category"], _amount_bucket(r["amount"]))
+
+    seen_keys: dict[tuple, int] = {}  # key → index in deduped
+    deduped: list[dict] = []
+    for r in sorted(records, key=lambda r: (-r["regularity"], -r["occurrences"])):
+        key = _dedup_key(r)
+        if key not in seen_keys:
+            seen_keys[key] = len(deduped)
+            deduped.append(r)
+        # else: discard the variant with fewer occurrences (already sorted lower)
+
+    return deduped
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +465,33 @@ def spend_velocity(df: pd.DataFrame) -> dict:
     day_pct = days_elapsed / days_in_month
 
     spent_so_far = float(current["abs_amount"].sum())
-    projected_eom = round(spent_so_far / day_pct, 2) if day_pct > 0 else 0.0
+
+    # Split current spend into fixed bills vs variable daily spending.
+    # Fixed bills are one-shots that won't repeat linearly; only project variable.
+    FIXED_CATS = {"Subscriptions", "Rent & Housing", "Utilities", "Healthcare",
+                  "Accounting", "Insurance", "Education", "Phone & Internet", "Taxes"}
+    recurring_items = detect_recurring(df)
+    monthly_recurring = [r for r in recurring_items if r["period"] in {"Monthly", "Bi-weekly"}]
+    paid_cps = set(current["counterparty"].str.lower())
+
+    # Bills paid so far this month that are fixed-category recurring items
+    rec_cps_lower = {r["counterparty"].lower() for r in monthly_recurring}
+    current["_fixed"] = (
+        current["category"].isin(FIXED_CATS) |
+        current["counterparty"].str.lower().isin(rec_cps_lower)
+    )
+    fixed_paid   = float(current[current["_fixed"]]["abs_amount"].sum())
+    variable_paid = float(current[~current["_fixed"]]["abs_amount"].sum())
+
+    # Expected fixed bills not yet paid this month
+    expected_fixed = sum(
+        r["amount"] for r in monthly_recurring
+        if r["category"] in FIXED_CATS and r["counterparty"].lower() not in paid_cps
+    )
+
+    # Project only variable spend linearly; add known fixed obligations
+    variable_projected = (variable_paid / day_pct) if day_pct > 0 else 0.0
+    projected_eom = round(fixed_paid + expected_fixed + variable_projected, 2)
 
     avg_prior = float(prior.groupby("month")["abs_amount"].sum().mean()) if not prior.empty else 0.0
     vs_avg_pct = round((projected_eom - avg_prior) / avg_prior * 100, 1) if avg_prior > 0 else None
@@ -675,3 +734,35 @@ def budget_health(df: pd.DataFrame) -> dict:
         "Needs work"
     )
     return {"budget_health_score": score, "budget_health_label": label}
+
+
+def daily_spend_by_category(df: pd.DataFrame, month: str, top_n: int = 6) -> dict:
+    exp = _real_expenses(df)
+    exp = exp[(exp["month"] == month) & (exp["currency"] == "PLN")].copy()
+
+    if exp.empty:
+        return {"categories": [], "days": []}
+
+    cat_totals = exp.groupby("category")["abs_amount"].sum().sort_values(ascending=False)
+    top_cats = cat_totals.head(top_n).index.tolist()
+
+    exp["_cat"] = exp["category"].apply(lambda c: c if c in top_cats else "Other")
+
+    daily = exp.groupby(["booking_date", "_cat"])["abs_amount"].sum().reset_index()
+    pivot = daily.pivot(index="booking_date", columns="_cat", values="abs_amount").fillna(0)
+    pivot.index = pd.to_datetime(pivot.index).strftime("%Y-%m-%d")
+
+    month_start = pd.Timestamp(month + "-01")
+    month_end = month_start + pd.offsets.MonthEnd(0)
+    all_days = pd.date_range(month_start, month_end, freq="D").strftime("%Y-%m-%d")
+    pivot = pivot.reindex(all_days, fill_value=0)
+
+    ordered_cats = [c for c in top_cats if c in pivot.columns]
+    if "Other" in pivot.columns:
+        ordered_cats.append("Other")
+
+    pivot = pivot[ordered_cats].round(0)
+
+    days = [{"date": date, **{c: float(row[c]) for c in ordered_cats}} for date, row in pivot.iterrows()]
+
+    return {"categories": ordered_cats, "days": days}

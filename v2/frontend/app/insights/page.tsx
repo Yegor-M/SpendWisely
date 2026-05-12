@@ -8,10 +8,7 @@ import { CategoryDeltasTable }    from "@/components/insights/CategoryDeltasTabl
 import { NewMerchantsCard }       from "@/components/insights/NewMerchantsCard";
 import { AnomaliesPanel }         from "@/components/insights/AnomaliesPanel";
 import { RecurringCostsCard }     from "@/components/insights/RecurringCostsCard";
-import { FixedVsVariableCard }    from "@/components/insights/FixedVsVariableCard";
 import { DowChart }               from "@/components/insights/DowChart";
-import { IncomeSourcesTable }     from "@/components/insights/IncomeSourcesTable";
-import { BusinessPersonalSplit }  from "@/components/insights/BusinessPersonalSplit";
 import { CategoryTrendsTable }    from "@/components/insights/CategoryTrendsTable";
 import { TopTransactionsCard }    from "@/components/insights/TopTransactionsCard";
 
@@ -56,13 +53,12 @@ export default async function InsightsPage({
   const [
     summaryRes, monthlyRes,
     deltas, anomalies,
-    dow, businessSplit, incomeSources, categoryTrends,
+    dow, categoryTrends,
     recurringSummary, topTransactions, newMerchants,
   ] = await Promise.allSettled([
     api.summary(months), api.monthly(months),
     api.deltas(), api.anomalies(months),
-    api.dow(months), api.businessSplit(months),
-    api.incomeSources(months), api.categoryTrends(months),
+    api.dow(months), api.categoryTrends(months),
     api.recurringSummary(months), api.topTransactions(10, months),
     api.newMerchants(),
   ]);
@@ -84,22 +80,12 @@ export default async function InsightsPage({
       </div>
 
       {/* ── STRUCTURAL BASELINE ─────────────────────────────────────── */}
-      {(hasRecurring || incomeSources.status === "fulfilled" || businessSplit.status === "fulfilled") && (
+      {hasRecurring && (
         <Section title="Structural Baseline" subtitle="What your normal looks like every month">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {hasRecurring && (
-              <RecurringCostsCard data={recurringSummary.value} />
-            )}
-            {hasRecurring && hasSummary && (
-              <FixedVsVariableCard summary={summaryRes.value} recurring={recurringSummary.value} />
-            )}
-            {incomeSources.status === "fulfilled" && incomeSources.value.length > 0 && (
-              <IncomeSourcesTable data={incomeSources.value} />
-            )}
-            {businessSplit.status === "fulfilled" && Object.keys(businessSplit.value).length > 0 && (
-              <BusinessPersonalSplit data={businessSplit.value} />
-            )}
-          </div>
+          <RecurringCostsCard
+            data={recurringSummary.value}
+            summary={hasSummary ? summaryRes.value : undefined}
+          />
         </Section>
       )}
 

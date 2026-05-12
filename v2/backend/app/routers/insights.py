@@ -111,6 +111,15 @@ def get_recurring_summary(months: Optional[int] = None):
     return svc.recurring_summary(_period(_load_df(), months))
 
 
+@router.get("/daily-spend")
+def get_daily_spend(month: Optional[str] = None):
+    from datetime import date as _date
+    df = _load_df()
+    if month is None:
+        month = _date.today().strftime("%Y-%m")
+    return svc.daily_spend_by_category(df, month)
+
+
 @router.get("/this-month-transactions")
 def get_this_month_transactions(month: Optional[str] = None):
     df = _load_df()
@@ -123,7 +132,7 @@ def get_this_month_transactions(month: Optional[str] = None):
 
     # Build recurring counterparty → full item map from full history
     recurring_items = svc.detect_recurring(df)
-    recurring_map: dict = {r["counterparty"]: r for r in recurring_items}
+    recurring_map: dict = {r["counterparty"].lower(): r for r in recurring_items}
 
     # Commitment classification:
     # "fixed"       — true bills: rent, subscriptions, utilities, ISP, healthcare
@@ -156,9 +165,21 @@ def get_this_month_transactions(month: Optional[str] = None):
         (df["direction"] == "income") &
         (~df["is_internal"])
     ]
-    pln_inc = inc[inc["currency"] == "PLN"]["abs_amount"].sum()
-    usd_inc = inc[inc["currency"] == "USD"]["abs_amount"].sum()
-    income_total = float(pln_inc + usd_inc * rate)
+    pln_inc = float(inc[inc["currency"] == "PLN"]["abs_amount"].sum())
+    usd_inc = float(inc[inc["currency"] == "USD"]["abs_amount"].sum())
+    income_total = pln_inc + usd_inc * rate
+
+    # Expected income: avg prior-month income when nothing has arrived yet this month
+    prior_inc = df[(df["month"] < target_month) & (df["direction"] == "income") & (~df["is_internal"])]
+    if income_total == 0 and not prior_inc.empty:
+        monthly_pln = [
+            float(g[g["currency"] == "PLN"]["abs_amount"].sum()) +
+            float(g[g["currency"] == "USD"]["abs_amount"].sum()) * rate
+            for _, g in prior_inc.groupby("month")
+        ]
+        income_expected = round(float(pd.Series(monthly_pln).mean()), 2)
+    else:
+        income_expected = 0.0
 
     # PLN expenses for the month
     exp = df[
@@ -175,7 +196,7 @@ def get_this_month_transactions(month: Optional[str] = None):
     for _, row in exp.iterrows():
         cp  = row["counterparty"]
         cat = row["category"]
-        rec = recurring_map.get(cp)
+        rec = recurring_map.get(cp.lower())
         is_recurring = rec is not None
         period       = rec["period"] if rec else None
         regularity   = float(rec["regularity"]) if rec else 0.0
@@ -186,7 +207,7 @@ def get_this_month_transactions(month: Optional[str] = None):
         elif ctype == "habit": habit_paid += amount
         else:                  other_paid += amount
 
-        seen_counterparties.add(cp)
+        seen_counterparties.add(cp.lower())
         txs.append({
             "id":               row["id"],
             "booking_date":     str(row["booking_date"])[:10],
@@ -203,7 +224,7 @@ def get_this_month_transactions(month: Optional[str] = None):
     monthly_periods = {"Monthly", "Bi-weekly"}
     expected = []
     for r in recurring_items:
-        if r["period"] not in monthly_periods or r["counterparty"] in seen_counterparties:
+        if r["period"] not in monthly_periods or r["counterparty"].lower() in seen_counterparties:
             continue
         ctype = _commitment(r["category"], float(r["regularity"]), True)
         expected.append({
@@ -220,13 +241,14 @@ def get_this_month_transactions(month: Optional[str] = None):
     habit_expected = sum(e["amount"] for e in expected if e["commitment_type"] == "habit")
 
     return {
-        "month":          target_month,
-        "income":         round(income_total, 2),
-        "fixed_paid":     round(fixed_paid, 2),
-        "habit_paid":     round(habit_paid, 2),
-        "other_paid":     round(other_paid, 2),
-        "fixed_expected": round(fixed_expected, 2),
-        "habit_expected": round(habit_expected, 2),
-        "transactions":   txs,
+        "month":            target_month,
+        "income":           round(income_total, 2),
+        "income_expected":  income_expected,
+        "fixed_paid":       round(fixed_paid, 2),
+        "habit_paid":       round(habit_paid, 2),
+        "other_paid":       round(other_paid, 2),
+        "fixed_expected":   round(fixed_expected, 2),
+        "habit_expected":   round(habit_expected, 2),
+        "transactions":     txs,
         "expected_recurrings": expected,
     }

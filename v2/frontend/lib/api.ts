@@ -121,6 +121,11 @@ export type TopTransaction = {
   abs_amount: number; category: string; month: string;
 };
 
+export type DailySpend = {
+  categories: string[];
+  days: Array<{ date: string } & Record<string, number>>;
+};
+
 export type RecurringSummary = {
   total_monthly_recurring: number;
   item_count: number;
@@ -144,6 +149,7 @@ export type ExpectedRecurring = {
 export type ThisMonthData = {
   month: string;
   income: number;
+  income_expected: number;
   fixed_paid: number;
   habit_paid: number;
   other_paid: number;
@@ -220,6 +226,7 @@ export const api = {
   topTransactions: (n = 10, months?: number) => get<TopTransaction[]>("/insights/top-transactions", { n, ...(months ? { months } : {}) }),
   newMerchants:    ()                => get<NewMerchant[]>("/insights/new-merchants"),
   recurringSummary:(months?: number) => get<RecurringSummary>("/insights/recurring-summary", months ? { months } : undefined),
+  dailySpend:      (month: string)   => get<DailySpend>("/insights/daily-spend", { month }),
   thisMonthTx:     (month?: string)  => get<ThisMonthData>("/insights/this-month-transactions", month ? { month } : undefined),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
