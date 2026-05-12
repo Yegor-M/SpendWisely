@@ -11,11 +11,10 @@ build/
 # Data — personal bank exports, never commit
 data/
 
-# Data outputs (generated, not source)
-v1/app/output/
+# v1 legacy pipeline — not needed in public repo
+v1/
 
-# Jupyter — may contain transaction data in cell outputs
-v1/app/playground.ipynb
+# Jupyter checkpoints
 .ipynb_checkpoints/
 
 # macOS

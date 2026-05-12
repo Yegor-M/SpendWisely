@@ -73,7 +73,7 @@ cd v2/frontend && npm run dev
 | `LLM_PROVIDER` | `claude` | `claude` \| `openai` \| `gemini` |
 | `LLM_MODEL` | provider default | Override the model used for categorisation |
 | `DB_PATH` | `./spendwisely.duckdb` | DuckDB file location |
-| `OWNER_NAME` | `YEHOR MAKARENKO` | Account holder name — used to detect own-account transfers |
+| `OWNER_NAME` | — | Your name as it appears in bank transfers — used to detect own-account transactions |
 
 ## Data format
 
@@ -102,7 +102,6 @@ v2/
     components/        Dashboard widgets, insight panels, plan checklist, UI components
     lib/api.ts         Typed API client
 
-v1/                    Legacy Python pipeline (reference only)
 ```
 
 ## Roadmap

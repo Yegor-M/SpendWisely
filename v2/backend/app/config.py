@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     google_api_key: str = ""      # gemini
 
     db_path: str = "./spendwisely.duckdb"
-    owner_name: str = "YEHOR MAKARENKO"
+    owner_name: str = ""   # set in .env — used to detect own-account transfers
 
     class Config:
         env_file = ".env"
