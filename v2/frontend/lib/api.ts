@@ -146,14 +146,27 @@ export type ExpectedRecurring = {
   commitment_type: CommitmentType;
 };
 
+export type IncomeTransaction = {
+  id: string; booking_date: string; counterparty: string;
+  amount: number; currency: string; pln_equiv: number; category: string;
+};
+
+export type ExpectedIncome = {
+  counterparty: string; amount: number; currency: string;
+  pln_equiv: number; period: string;
+};
+
 export type ThisMonthData = {
   month: string;
   income: number;
+  income_expected_pln: number;
   fixed_paid: number;
   habit_paid: number;
   other_paid: number;
   fixed_expected: number;
   habit_expected: number;
+  income_transactions: IncomeTransaction[];
+  expected_income: ExpectedIncome[];
   transactions: BudgetTransaction[];
   expected_recurrings: ExpectedRecurring[];
 };

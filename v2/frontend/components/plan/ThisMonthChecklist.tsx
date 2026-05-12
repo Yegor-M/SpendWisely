@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ThisMonthData, BudgetTransaction, ExpectedRecurring } from "@/lib/api";
+import type { ThisMonthData, BudgetTransaction, ExpectedRecurring, IncomeTransaction, ExpectedIncome } from "@/lib/api";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
@@ -25,12 +25,13 @@ function groupByCategory(txs: BudgetTransaction[]) {
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
 function SummaryBar({ data }: { data: ThisMonthData }) {
-  const spent    = data.fixed_paid + data.habit_paid + data.other_paid;
-  const expected = data.fixed_expected + data.habit_expected;
-  const net      = data.income - spent - expected;
+  const totalIncome  = data.income + (data.income_expected_pln ?? 0);
+  const spent        = data.fixed_paid + data.habit_paid + data.other_paid;
+  const expected     = data.fixed_expected + data.habit_expected;
+  const net          = totalIncome - spent - expected;
 
   const tiles = [
-    { label: "Income",   value: data.income,                          color: "oklch(0.52 0.185 155)" },
+    { label: "Income",   value: totalIncome,                          color: "oklch(0.52 0.185 155)" },
     { label: "Bills",    value: data.fixed_paid + data.fixed_expected, color: "oklch(0.58 0.200 25)"  },
     { label: "Spending", value: data.habit_paid + data.other_paid,     color: "oklch(0.55 0.195 265)" },
     { label: "Free",     value: net, color: net < 0 ? "oklch(0.58 0.200 25)" : "oklch(0.52 0.185 155)" },
@@ -85,6 +86,44 @@ function ExpectedRow({ item }: { item: ExpectedRecurring }) {
       </span>
       <span className="text-[13px] tabular-nums shrink-0 w-20 text-right">
         ~{fmt(item.amount)} PLN
+      </span>
+    </div>
+  );
+}
+
+function ReceivedIncomeRow({ tx }: { tx: IncomeTransaction }) {
+  const label = tx.currency === "USD"
+    ? `${fmt(tx.amount)} USD ≈ ${fmt(tx.pln_equiv)} PLN`
+    : `${fmt(tx.pln_equiv)} PLN`;
+  return (
+    <div className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+      <span
+        className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
+        style={{ background: "oklch(0.62 0.175 148 / 0.15)", color: "oklch(0.44 0.165 158)" }}
+      >✓</span>
+      <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-8">
+        {fmtDate(tx.booking_date)}
+      </span>
+      <span className="flex-1 text-[13px] truncate">{tx.counterparty}</span>
+      <span className="text-[13px] font-semibold tabular-nums shrink-0 text-right" style={{ color: "oklch(0.52 0.185 155)" }}>
+        +{label}
+      </span>
+    </div>
+  );
+}
+
+function ExpectedIncomeRow({ item }: { item: ExpectedIncome }) {
+  const label = item.currency === "USD"
+    ? `~${fmt(item.amount)} USD ≈ ${fmt(item.pln_equiv)} PLN`
+    : `~${fmt(item.pln_equiv)} PLN`;
+  return (
+    <div className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+      <span className="w-4 h-4 rounded-full shrink-0 border border-dashed border-border/60" />
+      <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-8" />
+      <span className="flex-1 text-[13px] truncate">{item.counterparty}</span>
+      <span className="text-[11px] text-muted-foreground/60 shrink-0 hidden sm:inline">{item.period}</span>
+      <span className="text-[13px] tabular-nums shrink-0 text-right" style={{ color: "oklch(0.52 0.185 155 / 0.7)" }}>
+        +{label}
       </span>
     </div>
   );
@@ -169,6 +208,11 @@ function Section({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
+  const incomeReceived = data.income_transactions ?? [];
+  const incomeExpected = data.expected_income ?? [];
+  const hasIncome      = incomeReceived.length > 0 || incomeExpected.length > 0;
+  const incomeTotal    = data.income + (data.income_expected_pln ?? 0);
+
   const fixed   = data.transactions.filter((t) => t.commitment_type === "fixed");
   const habits  = data.transactions.filter((t) => t.commitment_type === "habit");
   const oneTime = data.transactions.filter((t) => t.commitment_type === "other");
@@ -199,7 +243,37 @@ export function ThisMonthChecklist({ data }: { data: ThisMonthData }) {
       </CardHeader>
       <CardContent className="space-y-4">
 
-        {/* ① Bills — paid ✓ + coming up ○ in one place */}
+        {/* ① Income — received ✓ + expected ○ */}
+        {hasIncome && (
+          <Section
+            label="Income"
+            sublabel="this month"
+            total={incomeTotal}
+            totalColor="oklch(0.52 0.185 155)"
+            paid={data.income}
+            defaultOpen={true}
+          >
+            <div className="divide-y divide-border/30">
+              {incomeReceived.map((tx) => <ReceivedIncomeRow key={tx.id} tx={tx} />)}
+            </div>
+            {incomeExpected.length > 0 && (
+              <>
+                {incomeReceived.length > 0 && (
+                  <div className="flex items-center gap-2 my-3">
+                    <div className="flex-1 h-px bg-border/30" />
+                    <span className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">expected</span>
+                    <div className="flex-1 h-px bg-border/30" />
+                  </div>
+                )}
+                <div className="divide-y divide-border/30">
+                  {incomeExpected.map((item, i) => <ExpectedIncomeRow key={i} item={item} />)}
+                </div>
+              </>
+            )}
+          </Section>
+        )}
+
+        {/* ② Bills — paid ✓ + coming up ○ in one place */}
         {(billsPaid.length > 0 || hasExpected) && (
           <Section
             label="Bills"
