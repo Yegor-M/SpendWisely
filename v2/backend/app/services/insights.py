@@ -736,6 +736,35 @@ def budget_health(df: pd.DataFrame) -> dict:
     return {"budget_health_score": score, "budget_health_label": label}
 
 
+def monthly_breakdown(df: pd.DataFrame) -> list[dict]:
+    rate = _implied_fx_rate(df)
+    exp = _real_expenses(df)
+    inc = _real_income(df)
+
+    recurring_items = detect_recurring(df)
+    recurring_cps = {r["counterparty"].lower() for r in recurring_items}
+
+    pln_exp = exp[exp["currency"] == "PLN"].copy()
+    pln_exp["is_recurring"] = pln_exp["counterparty"].str.lower().isin(recurring_cps)
+
+    rec_by_month = pln_exp[pln_exp["is_recurring"]].groupby("month")["abs_amount"].sum()
+    var_by_month = pln_exp[~pln_exp["is_recurring"]].groupby("month")["abs_amount"].sum()
+
+    pln_inc = inc[inc["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    usd_inc = (inc[inc["currency"] == "USD"].groupby("month")["abs_amount"].sum() * rate)
+
+    months = sorted(set(pln_exp["month"]) | set(pln_inc.index) | set(usd_inc.index))
+
+    rows = []
+    for m in months:
+        recurring = round(float(rec_by_month.get(m, 0)), 2)
+        variable = round(float(var_by_month.get(m, 0)), 2)
+        income = round(float(pln_inc.get(m, 0)) + float(usd_inc.get(m, 0)), 2)
+        net = round(income - recurring - variable, 2)
+        rows.append({"month": m, "income": income, "recurring": recurring, "variable": variable, "net": net})
+    return rows
+
+
 def daily_spend_by_category(df: pd.DataFrame, month: str, top_n: int = 6) -> dict:
     exp = _real_expenses(df)
     exp = exp[(exp["month"] == month) & (exp["currency"] == "PLN")].copy()

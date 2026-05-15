@@ -120,6 +120,11 @@ def get_daily_spend(month: Optional[str] = None):
     return svc.daily_spend_by_category(df, month)
 
 
+@router.get("/monthly-breakdown")
+def get_monthly_breakdown(months: Optional[int] = None):
+    return svc.monthly_breakdown(_period(_load_df(), months))
+
+
 @router.get("/this-month-transactions")
 def get_this_month_transactions(month: Optional[str] = None):
     df = _load_df()
