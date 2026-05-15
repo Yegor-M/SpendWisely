@@ -52,7 +52,12 @@ export function RecurringCostsCard({ data }: Props) {
                 >
                   {item.period}
                 </span>
-                <p className="text-[12px] font-semibold tabular-nums shrink-0">{fmt(item.monthly_equiv)}</p>
+                <p className="text-[12px] font-semibold tabular-nums shrink-0">
+                  {item.amount_max > 0 && (item.amount_max - item.amount_min) / item.amount_max > 0.05
+                    ? <>{fmt(item.amount_min)}<span className="text-muted-foreground font-normal">–</span>{fmt(item.amount_max)}</>
+                    : fmt(item.monthly_equiv)
+                  }
+                </p>
               </div>
             ))}
           </div>

@@ -47,7 +47,9 @@ export default async function InsightsPage({
     period === "1m" ? 1 :
     period === "3m" ? 3 :
     period === "6m" ? 6 :
-    undefined;
+    period === "all" ? 0 :   // 0 = sentinel for all-time
+    3;                        // fallback to quarter
+
 
   const [
     summaryRes, monthlyRes,

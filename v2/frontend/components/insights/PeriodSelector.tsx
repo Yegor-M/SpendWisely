@@ -16,9 +16,8 @@ export function PeriodSelector() {
 
   function select(value: string) {
     const p = new URLSearchParams(params.toString());
-    if (value === "all") p.delete("period");
-    else p.set("period", value);
-    router.replace(`${pathname}${p.toString() ? "?" + p.toString() : ""}`, { scroll: false });
+    p.set("period", value);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
   return (

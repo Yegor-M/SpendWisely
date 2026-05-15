@@ -42,8 +42,8 @@ export type Merchant = {
 };
 
 export type Recurring = {
-  counterparty: string; amount: number; occurrences: number; period: string;
-  regularity: number; category: string; last_seen: string;
+  counterparty: string; amount: number; amount_min: number; amount_max: number;
+  occurrences: number; period: string; regularity: number; category: string; last_seen: string;
 };
 
 export type Transaction = {

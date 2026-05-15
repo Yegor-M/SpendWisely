@@ -185,6 +185,8 @@ def _recurring_entry(grp: pd.DataFrame, cp: str, dates: pd.Series,
     return {
         "counterparty": cp,
         "amount":       round(float(grp["abs_amount"].median()), 2),
+        "amount_min":   round(float(grp["abs_amount"].min()), 2),
+        "amount_max":   round(float(grp["abs_amount"].max()), 2),
         "occurrences":  len(grp),
         "period":       _period_label(avg_gap) or f"~{avg_gap:.0f}d",
         "avg_gap_days": round(avg_gap, 1),
