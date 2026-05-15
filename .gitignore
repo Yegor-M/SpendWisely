@@ -40,3 +40,7 @@ v2/frontend/node_modules/
 !.env.example
 !.env.local
 .claude/settings.local.json
+
+# Personal notes and sensitive context (tax info, financial details, etc.)
+notes/
+context/private/

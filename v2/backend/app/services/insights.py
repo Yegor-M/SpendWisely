@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 import numpy as np
 import pandas as pd
+from datetime import date
 from collections import defaultdict
 
 
@@ -684,6 +685,17 @@ def top_transactions(df: pd.DataFrame, n: int = 10) -> list[dict]:
 # ---------------------------------------------------------------------------
 def recurring_summary(df: pd.DataFrame) -> dict:
     items = detect_recurring(df)
+
+    # Drop monthly/bi-weekly entries not seen in the last 75 days — these are
+    # superseded rates (e.g. old ZUS tier) that are no longer active.
+    cutoff = (pd.Timestamp.today() - pd.Timedelta(days=75)).date()
+    active_periods = {"Monthly", "Bi-weekly"}
+    items = [
+        r for r in items
+        if r["period"] not in active_periods
+        or date.fromisoformat(r["last_seen"]) >= cutoff
+    ]
+
     monthly_items = [r for r in items if r["period"] == "Monthly"]
     biweekly_items = [r for r in items if r["period"] == "Bi-weekly"]
 
