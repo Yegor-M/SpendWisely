@@ -42,7 +42,7 @@ export default async function InsightsPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const params = await searchParams;
-  const period = params.period ?? "all";
+  const period = params.period ?? "3m";
   const months =
     period === "1m" ? 1 :
     period === "3m" ? 3 :

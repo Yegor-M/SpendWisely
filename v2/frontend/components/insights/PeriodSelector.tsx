@@ -12,7 +12,7 @@ export function PeriodSelector() {
   const router   = useRouter();
   const params   = useSearchParams();
   const pathname = usePathname();
-  const current  = params.get("period") ?? "all";
+  const current  = params.get("period") ?? "3m";
 
   function select(value: string) {
     const p = new URLSearchParams(params.toString());
