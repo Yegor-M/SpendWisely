@@ -5,11 +5,8 @@ import { LifestyleInflationCard }    from "@/components/insights/LifestyleInflat
 import { CategoryDeltasTable }       from "@/components/insights/CategoryDeltasTable";
 import { NewMerchantsCard }          from "@/components/insights/NewMerchantsCard";
 import { RecurringCostsCard }        from "@/components/insights/RecurringCostsCard";
-import { DowChart }                  from "@/components/insights/DowChart";
-import { CategoryTrendsTable }       from "@/components/insights/CategoryTrendsTable";
 import { TopTransactionsCard }       from "@/components/insights/TopTransactionsCard";
 import { MonthlyBreakdownChart }     from "@/components/insights/MonthlyBreakdownChart";
-import { MonthlyBreakdownTable }     from "@/components/insights/MonthlyBreakdownTable";
 
 export const dynamic = "force-dynamic";
 
@@ -47,24 +44,22 @@ export default async function InsightsPage({
     period === "1m" ? 1 :
     period === "3m" ? 3 :
     period === "6m" ? 6 :
-    period === "all" ? 0 :   // 0 = sentinel for all-time
-    3;                        // fallback to quarter
-
+    period === "all" ? 0 :
+    3;
 
   const [
     summaryRes, monthlyRes,
-    deltas, dow, categoryTrends,
+    deltas,
     recurringSummary, topTransactions, newMerchants,
     breakdownRes,
   ] = await Promise.allSettled([
     api.summary(months), api.monthly(months),
-    api.deltas(), api.dow(months), api.categoryTrends(months),
+    api.deltas(),
     api.recurringSummary(months), api.topTransactions(10, months),
     api.newMerchants(),
     api.monthlyBreakdown(months),
   ]);
 
-  const hasSummary   = summaryRes.status   === "fulfilled" && Object.keys(summaryRes.value).length > 0;
   const hasMonthly   = monthlyRes.status   === "fulfilled" && monthlyRes.value.length > 0;
   const hasRecurring = recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0;
   const hasBreakdown = breakdownRes.status === "fulfilled" && breakdownRes.value.length > 0;
@@ -81,6 +76,14 @@ export default async function InsightsPage({
         </Suspense>
       </div>
 
+      {/* ── MONTHLY BREAKDOWN ───────────────────────────────────────── */}
+      {hasBreakdown && (
+        <Section title="Monthly Breakdown" subtitle="Where does your money go each month?">
+          <MonthlyBreakdownChart data={breakdownRes.value} />
+          {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
+        </Section>
+      )}
+
       {/* ── STRUCTURAL BASELINE ─────────────────────────────────────── */}
       {hasRecurring && (
         <Section title="Structural Baseline" subtitle="What your normal looks like every month">
@@ -89,33 +92,6 @@ export default async function InsightsPage({
             {deltas.status === "fulfilled" && deltas.value.length > 0 && (
               <CategoryDeltasTable data={deltas.value} />
             )}
-          </div>
-        </Section>
-      )}
-
-      {/* ── MONTHLY BREAKDOWN ───────────────────────────────────────── */}
-      {hasBreakdown && (
-        <Section title="Monthly Breakdown" subtitle="Where does your money go each month?">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MonthlyBreakdownChart data={breakdownRes.value} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MonthlyBreakdownTable data={breakdownRes.value} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
-            {categoryTrends.status === "fulfilled" && categoryTrends.value.length > 0 && (
-              <CategoryTrendsTable data={categoryTrends.value} />
-            )}
-          </div>
-        </Section>
-      )}
-
-      {/* ── BEHAVIORAL PATTERNS ─────────────────────────────────────── */}
-      {dow.status === "fulfilled" && dow.value.length > 0 && (
-        <Section title="Behavioral Patterns" subtitle="When and how you spend">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DowChart data={dow.value} />
           </div>
         </Section>
       )}
