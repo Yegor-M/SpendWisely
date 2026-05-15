@@ -114,7 +114,7 @@
 
 ## In Progress / Pending
 - **`docker-compose.prod.yml` SSR bug**: `API_URL: http://backend:8000/api/v1` still missing from frontend service env — server components will silently return empty data in prod Docker
-- **Regex rules gap**: BINANCE (crypto), personal transfers (MASHA, KATERINA, ALEXANDER, OLHA, NAZAR), ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized; AUTOPAY recurring detection fixed in #9 but category rule not yet added
+- **Regex rules gap**: BINANCE (crypto), personal transfers, ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized; AUTOPAY recurring detection fixed in #9 but category rule not yet added
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if a counterparty has mixed USD/PLN rows
 - Phase 3: Apple Wallet export parsing endpoint
 - Phase 3: Manual cash entry UI (quick-add modal)

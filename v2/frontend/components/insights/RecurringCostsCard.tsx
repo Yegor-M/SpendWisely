@@ -1,6 +1,6 @@
 "use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { RecurringSummary, Summary } from "@/lib/api";
+import type { RecurringSummary } from "@/lib/api";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n);
@@ -18,16 +18,10 @@ const periodBadge: Record<string, string> = {
   Annual:     "bg-gray-100 text-gray-600",
 };
 
-type Props = { data: RecurringSummary; summary?: Summary };
+type Props = { data: RecurringSummary };
 
-export function RecurringCostsCard({ data, summary }: Props) {
+export function RecurringCostsCard({ data }: Props) {
   const topItems = data.items.slice(0, 10);
-
-  const fixed    = data.total_monthly_recurring;
-  const total    = summary?.avg_monthly_expenses ?? 0;
-  const variable = Math.max(0, total - fixed);
-  const fixedPct = total > 0 ? Math.min(100, (fixed / total) * 100) : 0;
-  const varPct   = 100 - fixedPct;
 
   return (
     <Card>
@@ -48,48 +42,27 @@ export function RecurringCostsCard({ data, summary }: Props) {
         ) : (
           <div className="divide-y divide-border/50">
             {topItems.map((item, i) => (
-              <div key={i} className="flex items-center py-2.5 first:pt-0 last:pb-0 gap-3">
+              <div key={i} className="flex items-center py-1.5 first:pt-0 last:pb-0 gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium truncate">{item.counterparty}</p>
-                  <p className="text-[11px] text-muted-foreground">{item.category} · {item.occurrences}×</p>
+                  <p className="text-[12px] font-medium truncate">{item.counterparty}</p>
                 </div>
+                <span className="text-[10px] text-muted-foreground shrink-0">{item.category}</span>
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${periodBadge[item.period] ?? "bg-muted text-muted-foreground"}`}
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${periodBadge[item.period] ?? "bg-muted text-muted-foreground"}`}
                 >
                   {item.period}
                 </span>
-                <div className="text-right shrink-0">
-                  <p className="text-[13px] font-semibold tabular-nums">{fmt(item.monthly_equiv)} PLN</p>
-                  <p
-                    className="text-[10px] font-medium"
-                    style={{ color: regularityColor(item.regularity) }}
-                  >
-                    {(item.regularity * 100).toFixed(0)}% regular
-                  </p>
-                </div>
+                <p className="text-[12px] font-semibold tabular-nums shrink-0">
+                  {item.amount_max > 0 && (item.amount_max - item.amount_min) / item.amount_max > 0.05
+                    ? <>{fmt(item.amount_min)}<span className="text-muted-foreground font-normal">–</span>{fmt(item.amount_max)}</>
+                    : fmt(item.monthly_equiv)
+                  }
+                </p>
               </div>
             ))}
           </div>
         )}
 
-        {summary && total > 0 && (
-          <div className="pt-2 border-t border-border/50 space-y-2">
-            <div className="h-2 rounded-full overflow-hidden flex">
-              <div className="h-full" style={{ width: `${fixedPct}%`, background: "oklch(0.55 0.195 265)" }} />
-              <div className="h-full" style={{ width: `${varPct}%`, background: "oklch(0.62 0.175 148)" }} />
-            </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>
-                <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: "oklch(0.55 0.195 265)" }} />
-                Fixed {fmt(fixed)} PLN <span className="opacity-60">({fixedPct.toFixed(0)}%)</span>
-              </span>
-              <span>
-                <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: "oklch(0.62 0.175 148)" }} />
-                Variable {fmt(variable)} PLN <span className="opacity-60">({varPct.toFixed(0)}%)</span>
-              </span>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 import numpy as np
 import pandas as pd
+from datetime import date
 from collections import defaultdict
 
 
@@ -184,6 +185,8 @@ def _recurring_entry(grp: pd.DataFrame, cp: str, dates: pd.Series,
     return {
         "counterparty": cp,
         "amount":       round(float(grp["abs_amount"].median()), 2),
+        "amount_min":   round(float(grp["abs_amount"].min()), 2),
+        "amount_max":   round(float(grp["abs_amount"].max()), 2),
         "occurrences":  len(grp),
         "period":       _period_label(avg_gap) or f"~{avg_gap:.0f}d",
         "avg_gap_days": round(avg_gap, 1),
@@ -684,6 +687,17 @@ def top_transactions(df: pd.DataFrame, n: int = 10) -> list[dict]:
 # ---------------------------------------------------------------------------
 def recurring_summary(df: pd.DataFrame) -> dict:
     items = detect_recurring(df)
+
+    # Drop monthly/bi-weekly entries not seen in the last 75 days — these are
+    # superseded rates (e.g. old ZUS tier) that are no longer active.
+    cutoff = (pd.Timestamp.today() - pd.Timedelta(days=75)).date()
+    active_periods = {"Monthly", "Bi-weekly"}
+    items = [
+        r for r in items
+        if r["period"] not in active_periods
+        or date.fromisoformat(r["last_seen"]) >= cutoff
+    ]
+
     monthly_items = [r for r in items if r["period"] == "Monthly"]
     biweekly_items = [r for r in items if r["period"] == "Bi-weekly"]
 
@@ -734,6 +748,35 @@ def budget_health(df: pd.DataFrame) -> dict:
         "Needs work"
     )
     return {"budget_health_score": score, "budget_health_label": label}
+
+
+def monthly_breakdown(df: pd.DataFrame) -> list[dict]:
+    rate = _implied_fx_rate(df)
+    exp = _real_expenses(df)
+    inc = _real_income(df)
+
+    recurring_items = detect_recurring(df)
+    recurring_cps = {r["counterparty"].lower() for r in recurring_items}
+
+    pln_exp = exp[exp["currency"] == "PLN"].copy()
+    pln_exp["is_recurring"] = pln_exp["counterparty"].str.lower().isin(recurring_cps)
+
+    rec_by_month = pln_exp[pln_exp["is_recurring"]].groupby("month")["abs_amount"].sum()
+    var_by_month = pln_exp[~pln_exp["is_recurring"]].groupby("month")["abs_amount"].sum()
+
+    pln_inc = inc[inc["currency"] == "PLN"].groupby("month")["abs_amount"].sum()
+    usd_inc = (inc[inc["currency"] == "USD"].groupby("month")["abs_amount"].sum() * rate)
+
+    months = sorted(set(pln_exp["month"]) | set(pln_inc.index) | set(usd_inc.index))
+
+    rows = []
+    for m in months:
+        recurring = round(float(rec_by_month.get(m, 0)), 2)
+        variable = round(float(var_by_month.get(m, 0)), 2)
+        income = round(float(pln_inc.get(m, 0)) + float(usd_inc.get(m, 0)), 2)
+        net = round(income - recurring - variable, 2)
+        rows.append({"month": m, "income": income, "recurring": recurring, "variable": variable, "net": net})
+    return rows
 
 
 def daily_spend_by_category(df: pd.DataFrame, month: str, top_n: int = 6) -> dict:

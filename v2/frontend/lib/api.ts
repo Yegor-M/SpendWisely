@@ -42,8 +42,8 @@ export type Merchant = {
 };
 
 export type Recurring = {
-  counterparty: string; amount: number; occurrences: number; period: string;
-  regularity: number; category: string; last_seen: string;
+  counterparty: string; amount: number; amount_min: number; amount_max: number;
+  occurrences: number; period: string; regularity: number; category: string; last_seen: string;
 };
 
 export type Transaction = {
@@ -198,6 +198,14 @@ export type TransactionAggregate = {
   net: number;
 };
 
+export type MonthlyBreakdown = {
+  month: string;
+  income: number;
+  recurring: number;
+  variable: number;
+  net: number;
+};
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(
     (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
@@ -235,6 +243,7 @@ export const api = {
   recurringSummary:(months?: number) => get<RecurringSummary>("/insights/recurring-summary", months ? { months } : undefined),
   dailySpend:      (month: string)   => get<DailySpend>("/insights/daily-spend", { month }),
   thisMonthTx:     (month?: string)  => get<ThisMonthData>("/insights/this-month-transactions", month ? { month } : undefined),
+  monthlyBreakdown:(months?: number) => get<MonthlyBreakdown[]>("/insights/monthly-breakdown", months ? { months } : undefined),
   transactions: (params?: Record<string, string | number | boolean>) =>
     get<Transaction[]>("/transactions", params),
   transactionsAggregate: (params?: Record<string, string | number | boolean>) =>
