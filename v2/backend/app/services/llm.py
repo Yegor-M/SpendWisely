@@ -144,7 +144,7 @@ class OpenAIProvider(LLMProvider):
 # Gemini (Google)
 # ---------------------------------------------------------------------------
 class GeminiProvider(LLMProvider):
-    DEFAULT_MODEL = "gemini-1.5-flash"
+    DEFAULT_MODEL = "gemini-2.0-flash"
 
     def __init__(self, api_key: str, model: str = ""):
         import google.generativeai as genai

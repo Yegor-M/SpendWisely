@@ -55,15 +55,13 @@ def get_bank_map():
 
 @router.post("/suggest")
 def suggest_categories(items: list[SuggestItem]):
-    """Run Haiku (or configured LLM) on representative transactions and return {id: category}."""
+    """Run configured LLM on representative transactions and return {id: category}."""
     from app.services.llm import get_provider
 
     if not items:
         return {}
 
-    llm = get_provider(provider="claude", model="claude-haiku-4-5-20251001")
-    if llm is None:
-        llm = get_provider()
+    llm = get_provider()
     if llm is None:
         return {}
 

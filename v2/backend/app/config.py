@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # LLM provider: claude | openai | gemini
-    llm_provider: str = "claude"
+    llm_provider: str = "gemini"
     llm_model: str = ""           # leave empty to use provider default
 
     anthropic_api_key: str = ""   # claude
