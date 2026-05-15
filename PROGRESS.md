@@ -112,9 +112,20 @@
 - `TransactionsTable.tsx`: filter bar (text search, category select, direction select, currency select, min/max amount); 350ms debounced re-fetch; skeleton loading rows; footer shows aggregate count + expense/income/net sums (always accurate from server, regardless of pagination)
 - Bug fix: `stale` flag in filter `useEffect` prevents in-flight responses from cancelled effects from overwriting current state or corrupting loading indicator
 
+### PR #11 — feat/insights-monthly-breakdown-v2 → main (merged)
+- **Monthly Breakdown** (`components/insights/MonthlyBreakdownChart.tsx`): stacked bar chart (recurring=blue, variable=amber) + income line; avg net badge; moved to top of Insights page
+- **Recurring Costs redesign**: compact rows, category label per row, amount min–max range when variance >5%; stale entries filtered (75-day recency cutoff + 6-month detection window); `_recurring_entry` returns `amount_min/amount_max`
+- **Changes block redesign** (`CategoryDeltasTable`): net delta headline, proportional bars per row, Accounting excluded, <100 PLN noise filtered
+- **Period selector fix**: always writes `?period=X` — "All time" no longer swallowed by 3m default; default changed to Quarter
+- **Removed from Insights**: SavingsRateTrendCard, AnomaliesPanel, MonthlyBreakdownTable, DowChart, CategoryTrendsTable, LifestyleInflationCard
+- **Security cleanup**: untrack `.claude/settings.local.json`; remove personal names from enricher regex and PROGRESS.md; add `notes/` gitignore
+- **Backend**: `monthly_breakdown()` service + `GET /insights/monthly-breakdown`; recurring-summary router caps at 6 months
+
 ## In Progress / Pending
-- **`docker-compose.prod.yml` SSR bug**: `API_URL: http://backend:8000/api/v1` still missing from frontend service env — server components will silently return empty data in prod Docker
-- **Regex rules gap**: BINANCE (crypto), personal transfers, ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized; AUTOPAY recurring detection fixed in #9 but category rule not yet added
+- **`docker-compose.prod.yml` SSR bug**: `API_URL: http://backend:8000/api/v1` still missing from frontend service env
+- **Regex rules gap**: BINANCE (crypto), personal transfers, ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized
+- **Dead code to clean**: `regularityColor` in RecurringCostsCard (unused), `MonthlyBreakdownTable` component (unused), `barColor.replace()` string hack in CategoryDeltasTable
+- **`months=0` sentinel**: `period=all` maps to `months=0` (falsy in JS → no param sent to backend). Fragile — if `0` ever reaches `_period()` it filters to current month only. Should use `undefined` explicitly
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if a counterparty has mixed USD/PLN rows
 - Phase 3: Apple Wallet export parsing endpoint
 - Phase 3: Manual cash entry UI (quick-add modal)

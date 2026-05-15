@@ -103,3 +103,14 @@ Client-side search/filter in `TransactionsTable` debounces API calls with `setTi
 The `/insights` page mixed backward-looking history (trends, anomalies) with forward-looking planning (velocity, predictions). This made both sections less useful.
 **Why:** Split into `/insights` (what happened) and `/plan` (what's coming + current month status). Each page now has a clear mental model. SpendVelocityCard and PredictionTable moved to Plan; CategoryDeltasTable and NewMerchantsCard moved within Insights.
 **Tradeoff:** Two fetches for pages that previously shared data (velocity was fetched in insights). Minimal cost since both pages use `force-dynamic` and SSR anyway.
+
+## Recurring detection always capped at 6 months regardless of period filter
+`GET /insights/recurring-summary` uses a fixed 6-month window even when the global period is "All time".
+**Why:** "All time" detection surfaces every historical rate tier a recurring payment has ever had — e.g. old ZUS amount (~1,180 PLN, superseded Jan 2026) and current rate (~921 PLN) both appear as separate Monthly entries. The user cares about what they pay *now*, not a historical audit of rate changes.
+**Tradeoff:** Recurring section doesn't respond to the period selector (intentional). Quarterly/Annual items need ≥3–4 occurrences within 6 months; Annual items may not qualify unless they happened to recur within the window. Acceptable for the current use case.
+**Gotcha:** The 75-day recency filter in `recurring_summary()` also trims stale monthly/bi-weekly items. Both defences are needed: the 6-month cap prevents detection of old tiers; the 75-day filter drops entries that were detected but haven't been seen recently.
+
+## Monthly Breakdown chart as primary Insights view
+Replaced the generic monthly P&L chart with a stacked bar (recurring vs variable) + income line, placed at the top of Insights.
+**Why:** The user's core question was "why do I go to zero every month?" The breakdown makes the answer visual: if the income line barely clears the top of the stacked bars, there's no slack. Splitting recurring from variable spend makes it immediately obvious whether the problem is fixed overhead or discretionary drift.
+**Tradeoff:** Recurring split is approximate — based on counterparty matching against `detect_recurring` output, not transaction-level tagging. A merchant that was recurring last year but stopped will still colour past months' bars as "recurring". Acceptable for trend analysis.

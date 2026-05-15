@@ -38,7 +38,7 @@ v2/frontend/
   app/plan/             Forward-looking plan page (this month checklist + predictions) + loading.tsx
   app/transactions/     Transactions table page (server SSR + client load-more) + loading.tsx
   components/dashboard/ SummaryCards, MonthlyChart, CategoryPie (multi-select), TopMerchants, RecurringList
-  components/insights/  Insight panels: Deltas, PredictionTable (rich), Anomalies, DOW, BizSplit, Income, Trends
+  components/insights/  MonthlyBreakdownChart, RecurringCostsCard, CategoryDeltasTable (redesigned), TopTransactionsCard, NewMerchantsCard, PeriodSelector
   components/plan/      ThisMonthChecklist — Bills/Daily/One-time sections with paid/total in headers
   components/TransactionsTable.tsx  Client component — search/filter bar, load-more (PAGE=200), aggregate footer
   components/ImportReview.tsx  Post-import modal: group table, AI suggest (Haiku), bulk-categorize + rule save
@@ -52,7 +52,8 @@ data/                   Gitignored — personal bank CSV exports
 - `v2/backend/app/services/enricher.py` — read before modifying category rules or LLM integration
 - `v2/backend/app/services/llm.py` — read before adding a new LLM provider or changing prompts
 - `v2/backend/app/database.py` — schema lives here; migrations are manual SQL
-- `v2/backend/app/routers/insights.py` — `GET /insights/this-month-transactions` inline endpoint with commitment classification logic
+- `v2/backend/app/routers/insights.py` — `GET /insights/this-month-transactions` inline endpoint with commitment classification logic; recurring-summary capped at 6 months
+- `v2/frontend/components/insights/MonthlyBreakdownChart.tsx` — stacked recurring+variable bar chart vs income line; read before modifying insights layout
 - `v2/frontend/components/plan/ThisMonthChecklist.tsx` — Bills/Daily/One-time breakdown; read before touching plan page layout
 - `v2/frontend/components/ImportReview.tsx` — post-import review modal; read before changing upload flow
 
@@ -75,6 +76,11 @@ data/                   Gitignored — personal bank CSV exports
 - `GET /insights/this-month-transactions` uses `svc._implied_fx_rate(df)` to convert USD income to PLN — same as all other income endpoints.
 - `GET /transactions/aggregate` returns `{count, total_expenses, total_income, net}` for any filter combination — same params as `GET /transactions` minus limit/offset. Used by the transactions page footer.
 - `TransactionsTable` filter effect uses a `stale` boolean flag (not AbortController) to ignore responses from cancelled effect runs. Never call `setLoading(false)` in the cleanup — only the current effect's `.finally()` should clear loading state.
+- `GET /insights/recurring-summary` always caps at 6 months regardless of period param — intentional, shows current rates not historical tiers.
+- `_recurring_entry()` returns `amount_min` and `amount_max`; RecurringCostsCard shows `min–max` range when `(max-min)/max > 5%`.
+- Insights period selector always writes `?period=X` to URL (never deletes param). Default is `3m`. `period=all` maps to `months=0` which is falsy in JS, so no `months` param is sent → backend returns all data. Careful: `_period(df, 0)` would filter to current month only — `0` must never reach the backend.
+- `notes/` and `context/private/` are gitignored — safe for personal tax/financial context files.
+- AUTOPAY S.A. pays multiple taxes: ~1,500 PLN PIT ryczałt, ~921 PLN ZUS social (Preferencyjny until Jan 2027). Old ~1,180 tier was superseded Jan 2026. Annual Składka Zdrowotna recalculation (e.g. 2,765 PLN in May 2026) is a one-time annual event, not monthly recurring.
 
 ## DB schema
 ```
@@ -96,11 +102,13 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [x] Plan tab, enriched predictions, salary month fix, load-more transactions (PR #8)
 - [x] Recurring split, EOM projection fix, expected income, daily spend chart (PR #9)
 - [x] Transactions tab search/filter + aggregate footer
+- [x] Insights overhaul — monthly breakdown, recurring fixes, security cleanup (PR #11)
 - [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service env
-- [ ] Expand regex rules: BINANCE, personal transfers (MASHA etc), ADMINISTRATRACJA, SZOPEX
+- [ ] Expand regex rules: BINANCE, personal transfers, ADMINISTRATRACJA, SZOPEX
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Category edit inline on transactions page
+- [ ] Fix dead code: `regularityColor` in RecurringCostsCard, unused `MonthlyBreakdownTable` component, `barColor.replace()` string hack in CategoryDeltasTable
 
 ## Do not touch without asking
 - `v2/backend/app/database.py` — schema changes need migration strategy
