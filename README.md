@@ -18,7 +18,7 @@ Personal finance tracker built on bank CSV exports. Understand your spending to 
 |---|---|
 | Backend | Python · FastAPI · DuckDB |
 | Frontend | Next.js 16 · TypeScript · Tailwind · shadcn/ui · Recharts |
-| AI | Claude / OpenAI / Gemini (pluggable; defaults to `claude-sonnet-4-6`) |
+| AI | Claude / OpenAI / Gemini (pluggable; free Gemini tier by default) |
 | Data | Pekao bank CSV (semicolon-delimited, Polish locale) |
 
 ## Getting started
@@ -27,16 +27,28 @@ Personal finance tracker built on bank CSV exports. Understand your spending to 
 git clone https://github.com/Yegor-M/SpendWisely.git
 cd SpendWisely
 cp v2/backend/.env.example v2/backend/.env
-# edit v2/backend/.env — set ANTHROPIC_API_KEY
-
 docker compose up --build
-# frontend → http://localhost:3000
-# API docs  → http://localhost:8000/docs
 ```
+
+- Frontend → http://localhost:3000
+- API docs → http://localhost:8000/docs
 
 Source files are mounted as volumes — Python and TypeScript changes are picked up without rebuilding.
 
-Open `http://localhost:3000`, click **Import Bank CSV**, and drop in your export. A review modal surfaces any uncategorized merchants with AI suggestions.
+**Enable AI categorisation (optional but recommended)**
+
+The app works without an API key — transactions are categorised by bank category + regex rules (~70% coverage). To unlock the AI pass and the "Suggest with AI" button in the import modal:
+
+1. Get a **free** Gemini key at https://aistudio.google.com/apikey (no billing required)
+2. Open http://localhost:3000 → click **⚙ AI Settings** at the bottom of the sidebar
+3. Select Gemini, paste the key, Save
+
+Or set it in `.env` before starting:
+```
+GOOGLE_API_KEY=AIza...
+```
+
+Then import a CSV: **Import Bank CSV** → drop in your export → review uncategorized merchants in the modal → **✦ Suggest with AI** → Apply.
 
 ## Server deployment
 
@@ -52,11 +64,8 @@ The DuckDB file is persisted in a named Docker volume (`spendwisely_db`) and sur
 
 ## Without Docker
 
-> Use this if you can't run Docker locally.
-
 ```bash
 bash setup.sh   # creates venv, installs deps, copies .env.example
-# edit v2/backend/.env — set ANTHROPIC_API_KEY
 
 # Terminal 1
 cd v2/backend && source .venv/bin/activate && uvicorn app.main:app --reload
@@ -69,9 +78,11 @@ cd v2/frontend && npm run dev
 
 | Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | Required for Claude categorisation pass |
-| `LLM_PROVIDER` | `claude` | `claude` \| `openai` \| `gemini` |
-| `LLM_MODEL` | provider default | Override the model used for categorisation |
+| `LLM_PROVIDER` | `gemini` | `gemini` \| `claude` \| `openai` |
+| `GOOGLE_API_KEY` | — | Free Gemini key (https://aistudio.google.com/apikey) |
+| `ANTHROPIC_API_KEY` | — | Claude key (paid) |
+| `OPENAI_API_KEY` | — | OpenAI key (paid) |
+| `LLM_MODEL` | provider default | Override the model (e.g. `gemini-2.0-flash`) |
 | `DB_PATH` | `./spendwisely.duckdb` | DuckDB file location |
 | `OWNER_NAME` | — | Your name as it appears in bank transfers — used to detect own-account transactions |
 
