@@ -83,10 +83,7 @@ export default async function InsightsPage({
       {hasRecurring && (
         <Section title="Structural Baseline" subtitle="What your normal looks like every month">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <RecurringCostsCard
-              data={recurringSummary.value}
-              summary={hasSummary ? summaryRes.value : undefined}
-            />
+            <RecurringCostsCard data={recurringSummary.value} />
             {deltas.status === "fulfilled" && deltas.value.length > 0 && (
               <CategoryDeltasTable data={deltas.value} />
             )}
