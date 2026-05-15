@@ -1,6 +1,8 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LLMSettings } from "@/components/LLMSettings";
 
 const NAV = [
   { href: "/",             label: "Dashboard",    icon: "▦" },
@@ -11,6 +13,7 @@ const NAV = [
 
 export function Sidebar() {
   const path = usePathname();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <>
@@ -43,6 +46,17 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* AI Settings */}
+        <div className="mt-auto px-2 pb-4 pt-3 border-t border-border/60">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <span className="text-[16px] leading-none">⚙</span>
+            AI Settings
+          </button>
+        </div>
       </aside>
 
       {/* ── Mobile top bar ── */}
@@ -68,9 +82,18 @@ export function Sidebar() {
                 </Link>
               );
             })}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="px-2 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors text-sm"
+              aria-label="AI Settings"
+            >
+              ⚙
+            </button>
           </nav>
         </div>
       </header>
+
+      <LLMSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
 }

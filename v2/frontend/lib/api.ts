@@ -185,6 +185,12 @@ export type BulkCategorizeItem = {
   counterparty: string;
 };
 
+export type LLMSettings = {
+  provider: string;
+  model: string;
+  key_set: boolean;
+};
+
 export type BulkCategorizeResult = {
   updated: number;
   rules_created: number;
@@ -254,4 +260,7 @@ export const api = {
     post<Record<string, string>>("/categories/suggest", items),
   bulkCategorize: (items: BulkCategorizeItem[]) =>
     post<BulkCategorizeResult>("/transactions/bulk-categorize", items),
+  getLLMSettings: () => get<LLMSettings>("/settings/llm"),
+  saveLLMSettings: (body: { provider: string; api_key: string; model?: string }) =>
+    post<{ ok: boolean }>("/settings/llm", body),
 };
