@@ -1,12 +1,11 @@
 import { api } from "@/lib/api";
 import { Suspense } from "react";
-import { PeriodSelector }            from "@/components/insights/PeriodSelector";
-import { LifestyleInflationCard }    from "@/components/insights/LifestyleInflationCard";
-import { CategoryDeltasTable }       from "@/components/insights/CategoryDeltasTable";
-import { NewMerchantsCard }          from "@/components/insights/NewMerchantsCard";
-import { RecurringCostsCard }        from "@/components/insights/RecurringCostsCard";
-import { TopTransactionsCard }       from "@/components/insights/TopTransactionsCard";
-import { MonthlyBreakdownChart }     from "@/components/insights/MonthlyBreakdownChart";
+import { PeriodSelector }        from "@/components/insights/PeriodSelector";
+import { CategoryDeltasTable }   from "@/components/insights/CategoryDeltasTable";
+import { NewMerchantsCard }      from "@/components/insights/NewMerchantsCard";
+import { RecurringCostsCard }    from "@/components/insights/RecurringCostsCard";
+import { TopTransactionsCard }   from "@/components/insights/TopTransactionsCard";
+import { MonthlyBreakdownChart } from "@/components/insights/MonthlyBreakdownChart";
 
 export const dynamic = "force-dynamic";
 
@@ -48,19 +47,16 @@ export default async function InsightsPage({
     3;
 
   const [
-    summaryRes, monthlyRes,
     deltas,
     recurringSummary, topTransactions, newMerchants,
     breakdownRes,
   ] = await Promise.allSettled([
-    api.summary(months), api.monthly(months),
     api.deltas(),
     api.recurringSummary(months), api.topTransactions(10, months),
     api.newMerchants(),
     api.monthlyBreakdown(months),
   ]);
 
-  const hasMonthly   = monthlyRes.status   === "fulfilled" && monthlyRes.value.length > 0;
   const hasRecurring = recurringSummary.status === "fulfilled" && recurringSummary.value.item_count > 0;
   const hasBreakdown = breakdownRes.status === "fulfilled" && breakdownRes.value.length > 0;
 
@@ -80,7 +76,6 @@ export default async function InsightsPage({
       {hasBreakdown && (
         <Section title="Monthly Breakdown" subtitle="Where does your money go each month?">
           <MonthlyBreakdownChart data={breakdownRes.value} />
-          {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
         </Section>
       )}
 
