@@ -48,25 +48,16 @@ export function RecurringCostsCard({ data, summary }: Props) {
         ) : (
           <div className="divide-y divide-border/50">
             {topItems.map((item, i) => (
-              <div key={i} className="flex items-center py-2.5 first:pt-0 last:pb-0 gap-3">
+              <div key={i} className="flex items-center py-1.5 first:pt-0 last:pb-0 gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium truncate">{item.counterparty}</p>
-                  <p className="text-[11px] text-muted-foreground">{item.category} · {item.occurrences}×</p>
+                  <p className="text-[12px] font-medium truncate">{item.counterparty}</p>
                 </div>
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${periodBadge[item.period] ?? "bg-muted text-muted-foreground"}`}
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${periodBadge[item.period] ?? "bg-muted text-muted-foreground"}`}
                 >
                   {item.period}
                 </span>
-                <div className="text-right shrink-0">
-                  <p className="text-[13px] font-semibold tabular-nums">{fmt(item.monthly_equiv)} PLN</p>
-                  <p
-                    className="text-[10px] font-medium"
-                    style={{ color: regularityColor(item.regularity) }}
-                  >
-                    {(item.regularity * 100).toFixed(0)}% regular
-                  </p>
-                </div>
+                <p className="text-[12px] font-semibold tabular-nums shrink-0">{fmt(item.monthly_equiv)}</p>
               </div>
             ))}
           </div>

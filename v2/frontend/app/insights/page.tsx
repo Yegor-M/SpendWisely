@@ -82,10 +82,15 @@ export default async function InsightsPage({
       {/* ── STRUCTURAL BASELINE ─────────────────────────────────────── */}
       {hasRecurring && (
         <Section title="Structural Baseline" subtitle="What your normal looks like every month">
-          <RecurringCostsCard
-            data={recurringSummary.value}
-            summary={hasSummary ? summaryRes.value : undefined}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RecurringCostsCard
+              data={recurringSummary.value}
+              summary={hasSummary ? summaryRes.value : undefined}
+            />
+            {deltas.status === "fulfilled" && deltas.value.length > 0 && (
+              <CategoryDeltasTable data={deltas.value} />
+            )}
+          </div>
         </Section>
       )}
 
@@ -100,9 +105,6 @@ export default async function InsightsPage({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hasMonthly && <LifestyleInflationCard data={monthlyRes.value} />}
-            {deltas.status === "fulfilled" && deltas.value.length > 0 && (
-              <CategoryDeltasTable data={deltas.value} />
-            )}
             {categoryTrends.status === "fulfilled" && categoryTrends.value.length > 0 && (
               <CategoryTrendsTable data={categoryTrends.value} />
             )}
