@@ -108,7 +108,11 @@ def get_top_transactions(n: int = 10, months: Optional[int] = None):
 
 @router.get("/recurring-summary")
 def get_recurring_summary(months: Optional[int] = None):
-    return svc.recurring_summary(_period(_load_df(), months))
+    df = _load_df()
+    # Always cap at 6 months for recurring detection: shows current rates,
+    # not historical tiers that have since changed (e.g. old ZUS amounts).
+    recurring_window = min(months, 6) if months else 6
+    return svc.recurring_summary(_period(df, recurring_window))
 
 
 @router.get("/daily-spend")
