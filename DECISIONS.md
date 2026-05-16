@@ -114,3 +114,20 @@ The `/insights` page mixed backward-looking history (trends, anomalies) with for
 Replaced the generic monthly P&L chart with a stacked bar (recurring vs variable) + income line, placed at the top of Insights.
 **Why:** The user's core question was "why do I go to zero every month?" The breakdown makes the answer visual: if the income line barely clears the top of the stacked bars, there's no slack. Splitting recurring from variable spend makes it immediately obvious whether the problem is fixed overhead or discretionary drift.
 **Tradeoff:** Recurring split is approximate — based on counterparty matching against `detect_recurring` output, not transaction-level tagging. A merchant that was recurring last year but stopped will still colour past months' bars as "recurring". Acceptable for trend analysis.
+
+## Gmail MCP for BLIK enrichment (over in-app OAuth for the operator)
+BLIK transactions show the payment processor (PAYPRO/Przelewy24), not the actual merchant. Two approaches were considered: (1) in-app Gmail OAuth2 flow for end users; (2) Claude MCP Gmail tool for the app operator doing per-session enrichment.
+**Why:** For a solo personal-finance tool, in-app OAuth adds complexity (client credentials, redirect URI, token storage, consent screen) for a feature only one person uses. The Claude MCP approach (`mcp__claude_ai_Gmail__search_threads`) gives instant access to the operator's inbox with zero infra — search `from:przelewy24.pl after:YYYY/MM/DD before:YYYY/MM/DD` returns email snippets containing the real merchant name.
+**Tradeoff:** MCP enrichment only works in a Claude Code session, not in the deployed app. In-app OAuth is implemented but dormant — it can be activated if the app is shared with other users. Both paths co-exist.
+**Gotcha:** BLIK REF search (`przelewy24.pl` sender) never works — Przelewy24 emails don't include the BLIK REF. Use the date+amount fallback. tpay.com emails DO include the BLIK REF in the subject line.
+
+## BLIK dedup via secondary title-match check
+Pekao exports both the pending and settled versions of a BLIK transaction, each with a different booking_date (same-day vs next-day). Hash dedup (on booking_date + reference + amount) doesn't catch this because the dates differ.
+**Why:** Without the secondary check, recurring BLIK payments (e.g. Przelewy24 monthly subscription) imported across two CSVs appeared twice — once as the pending booking and once as the settled one.
+**Tradeoff:** The secondary check queries the DB once per BLIK transaction during ingest — O(N) extra queries but negligible for typical import sizes (<500 rows). The check uses `title LIKE '%BLIK REF {ref}%' AND abs_amount = ? AND currency = ?` which is precise enough given BLIK REF numbers are unique.
+**Gotcha:** Non-BLIK transactions (no REF in title) skip the secondary check entirely — only hash dedup applies to them.
+
+## Gmail redirect URI as configurable env var
+The Gmail OAuth callback URI was originally hardcoded as `http://localhost:8000/api/v1/gmail/callback` in `routers/gmail.py`.
+**Why:** Hardcoded localhost breaks Docker (browser can't reach `backend:8000`) and any non-localhost deployment. Making it a `GMAIL_REDIRECT_URI` setting with a localhost default keeps zero-config local dev working while allowing prod overrides.
+**Tradeoff:** One more env var to document. The registered URI in Google Cloud Console must exactly match; a mismatch produces a cryptic OAuth error. Default is intentionally localhost so existing local setups need no change.

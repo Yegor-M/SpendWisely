@@ -121,12 +121,30 @@
 - **Security cleanup**: untrack `.claude/settings.local.json`; remove personal names from enricher regex and PROGRESS.md; add `notes/` gitignore
 - **Backend**: `monthly_breakdown()` service + `GET /insights/monthly-breakdown`; recurring-summary router caps at 6 months
 
+### PR #13 — feat/gmail-blik-enrichment → main (merged)
+- **BLIK dedup** (`routers/ingest.py`): after hash-dedup, secondary check for same BLIK REF + abs_amount + currency prevents pending→settled duplicates from landing in DB
+- **`PATCH /transactions/{id}`** (`routers/transactions.py`): dynamic SET clause; accepts `{category?, counterparty?}` either or both
+- **`GET /categories/rules`**: now returns `id` field so rules can be deleted via `DELETE /categories/rules/{id}`
+- **`app_settings` table** (`database.py`): `key/value` store for Gmail token (and future settings); `_save_token` uses SELECT+INSERT/UPDATE
+- **`services/gmail.py`** (new): OAuth2 auth-url, exchange-code, token-refresh, `search_messages`, `get_message_content`, `identify_merchant` heuristics (Wizz Air, Ryanair, LOT, Booking.com, FlixBus, RegioJet, Airbnb, car rentals), `build_blik_query`
+- **`routers/gmail.py`** (new): GET /status, /auth-url, /callback (HTMLResponse), DELETE /disconnect, POST /enrich-blik (sequential per-tx Gmail search, returns suggestions without auto-applying)
+- **`GmailSettings.tsx`** (new): connect/disconnect flow, enrich BLIK button, suggestion cards with Apply
+- **`LLMSettings.tsx`**: renamed to "Settings" modal with AI Provider / Gmail tabs
+- **Category corrections via Gmail MCP**: PAYPRO rule deleted; 15 transactions individually re-categorised (FOOTSSHOP→Clothing, MMAniak/INVICTUS→Sports & Fitness, PKP Intercity→Transport, Restaumatic→Food & Dining, WEB INNOVATIVE SOFTWARE→Subscriptions, Wizz Air→Travel)
+- **PAYPRO S.A. = Przelewy24**: documented in CLAUDE.md — never add blanket PAYPRO→Travel rule
+
+### fix: Gmail redirect URI + refresh_token guard (on main, commit 684b7c7)
+- `config.py`: `gmail_redirect_uri` setting (default: localhost, overridable via `GMAIL_REDIRECT_URI` env var)
+- `routers/gmail.py`: replaced hardcoded `_REDIRECT_URI` with `settings.gmail_redirect_uri` — fixes Docker/prod deploys
+- `services/gmail.py`: `refresh_access_token` uses `.get("refresh_token")` with explicit `ValueError` instead of `KeyError`
+
 ## In Progress / Pending
 - **`docker-compose.prod.yml` SSR bug**: `API_URL: http://backend:8000/api/v1` still missing from frontend service env
-- **Regex rules gap**: BINANCE (crypto), personal transfers, ADMINISTRATRACJA (rent admin fee), SZOPEX (shoes) — still uncategorized
+- **Regex rules gap**: BINANCE (crypto), personal transfers, SZOPEX (shoes) — still uncategorized
 - **Dead code to clean**: `regularityColor` in RecurringCostsCard (unused), `MonthlyBreakdownTable` component (unused), `barColor.replace()` string hack in CategoryDeltasTable
 - **`months=0` sentinel**: `period=all` maps to `months=0` (falsy in JS → no param sent to backend). Fragile — if `0` ever reaches `_period()` it filters to current month only. Should use `undefined` explicitly
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if a counterparty has mixed USD/PLN rows
+- **Nov 2024 65.50 PLN PAYPRO transaction**: merchant unidentified — no Przelewy24 email found for that date
 - Phase 3: Apple Wallet export parsing endpoint
 - Phase 3: Manual cash entry UI (quick-add modal)
 - Inline category editing on transactions page
