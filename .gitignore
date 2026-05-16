@@ -30,6 +30,7 @@ docker/nginx/certs/
 # v2 runtime artifacts
 v2/backend/*.duckdb
 v2/backend/*.duckdb.wal
+db/
 v2/backend/category_rules.json
 v2/frontend/.next/
 v2/frontend/node_modules/

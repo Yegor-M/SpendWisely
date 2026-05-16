@@ -18,14 +18,14 @@ def list_categories():
     return [r[0] for r in rows]
 
 
-@router.get("/rules", response_model=list[CategoryRule])
+@router.get("/rules")
 def list_rules():
     with db() as conn:
         rows = conn.execute(
-            "SELECT category, pattern, fields, priority, comment FROM category_rules ORDER BY priority DESC"
+            "SELECT id, category, pattern, fields, priority, comment FROM category_rules ORDER BY priority DESC"
         ).fetchall()
     return [
-        {"category": r[0], "pattern": r[1], "fields": r[2], "priority": r[3], "comment": r[4]}
+        {"id": r[0], "category": r[1], "pattern": r[2], "fields": r[3], "priority": r[4], "comment": r[5]}
         for r in rows
     ]
 

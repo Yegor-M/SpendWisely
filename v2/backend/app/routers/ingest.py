@@ -1,5 +1,6 @@
 import io
 import logging
+import re
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from app.database import db
 from app.models import IngestResult, UncategorizedGroup
@@ -7,6 +8,8 @@ from app.services.parser import parse_csv
 from app.services.enricher import BankEnricher
 from app.config import settings
 import tempfile, os
+
+_BLIK_REF_RE = re.compile(r"BLIK\s+REF\s+(\d+)", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -40,6 +43,24 @@ async def ingest_csv(
         )
         new_rows = df[~df["id"].isin(existing_ids)]
         duplicates = len(df) - len(new_rows)
+
+        # Deduplicate BLIK transactions whose REF already exists (pending → settled pairs).
+        # Different booking dates produce different hashes, so hash-dedup misses these.
+        if not new_rows.empty:
+            blik_dup_ids: set[str] = set()
+            for _, row in new_rows.iterrows():
+                m = _BLIK_REF_RE.search(str(row.get("title", "")))
+                if not m:
+                    continue
+                hit = conn.execute(
+                    "SELECT id FROM transactions WHERE title LIKE ? AND abs_amount = ? AND currency = ?",
+                    [f"%BLIK REF {m.group(1)}%", float(row["abs_amount"]), str(row.get("currency", "PLN"))],
+                ).fetchone()
+                if hit:
+                    blik_dup_ids.add(str(row["id"]))
+            if blik_dup_ids:
+                new_rows = new_rows[~new_rows["id"].isin(blik_dup_ids)]
+                duplicates += len(blik_dup_ids)
 
         if not new_rows.empty:
             conn.executemany(

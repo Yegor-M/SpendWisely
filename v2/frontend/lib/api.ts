@@ -212,6 +212,18 @@ export type MonthlyBreakdown = {
   net: number;
 };
 
+export type GmailEnrichment = {
+  tx_id: string;
+  blik_ref: string | null;
+  booking_date: string;
+  amount: number;
+  currency: string;
+  suggested_merchant: string | null;
+  suggested_category: string | null;
+  email_subject: string | null;
+  confidence: "high" | "medium" | "none";
+};
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(
     (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
@@ -227,6 +239,15 @@ async function del<T>(path: string): Promise<T> {
     { method: "DELETE" }
   );
   if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  return res.json();
+}
+
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(
+    (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
+    { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`);
   return res.json();
 }
 
@@ -263,4 +284,13 @@ export const api = {
   getLLMSettings: () => get<LLMSettings>("/settings/llm"),
   saveLLMSettings: (body: { provider: string; api_key: string; model?: string }) =>
     post<{ ok: boolean }>("/settings/llm", body),
+  patchTransaction: (tx_id: string, body: { category?: string; counterparty?: string }) =>
+    patch<Transaction>(`/transactions/${tx_id}`, body),
+
+  // Gmail
+  getGmailStatus: () => get<{ connected: boolean; reason?: string }>("/gmail/status"),
+  getGmailAuthUrl: () => get<{ url: string }>("/gmail/auth-url"),
+  gmailDisconnect: () => del<{ ok: boolean }>("/gmail/disconnect"),
+  gmailEnrichBlik: (tx_ids: string[]) =>
+    post<{ enrichments: GmailEnrichment[] }>("/gmail/enrich-blik", tx_ids),
 };

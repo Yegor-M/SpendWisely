@@ -109,9 +109,17 @@ def list_transactions(
 
 
 @router.patch("/{tx_id}", response_model=Transaction)
-def update_category(tx_id: str, patch: TransactionPatch):
+def update_transaction(tx_id: str, patch: TransactionPatch):
+    sets, params = [], []
+    if patch.category is not None:
+        sets.append("category=?"); params.append(patch.category)
+    if patch.counterparty is not None:
+        sets.append("counterparty=?"); params.append(patch.counterparty)
+    if not sets:
+        raise HTTPException(400, "Nothing to update")
+    params.append(tx_id)
     with db() as conn:
-        conn.execute("UPDATE transactions SET category=? WHERE id=?", [patch.category, tx_id])
+        conn.execute(f"UPDATE transactions SET {', '.join(sets)} WHERE id=?", params)
         row = conn.execute("SELECT * FROM transactions WHERE id=?", [tx_id]).fetchone()
     if not row:
         raise HTTPException(404, "Transaction not found")

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import get_conn
-from app.routers import ingest, transactions, insights, categories, settings
+from app.routers import ingest, transactions, insights, categories, settings, gmail
 
 app = FastAPI(title="SpendWisely API", version="2.0.0")
 
@@ -18,6 +18,7 @@ app.include_router(transactions.router, prefix="/api/v1")
 app.include_router(insights.router,     prefix="/api/v1")
 app.include_router(categories.router,   prefix="/api/v1")
 app.include_router(settings.router,     prefix="/api/v1")
+app.include_router(gmail.router,        prefix="/api/v1")
 
 
 @app.on_event("startup")
