@@ -1,8 +1,10 @@
+import threading
 import duckdb
 from contextlib import contextmanager
 from app.config import settings
 
 _conn: duckdb.DuckDBPyConnection | None = None
+_lock = threading.Lock()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS transactions (
@@ -67,5 +69,5 @@ def get_conn() -> duckdb.DuckDBPyConnection:
 
 @contextmanager
 def db():
-    conn = get_conn()
-    yield conn
+    with _lock:
+        yield get_conn()
