@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     db_path: str = "./spendwisely.duckdb"
     owner_name: str = ""   # set in .env — used to detect own-account transfers
 
+    gmail_client_id: str = ""      # Google OAuth2 client id
+    gmail_client_secret: str = ""  # Google OAuth2 client secret
+
     class Config:
         env_file = ".env"
 

@@ -14,7 +14,7 @@ services:
       - "8000:8000"
     volumes:
       - ./v2/backend:/app          # hot reload
-      - spendwisely_db:/data       # persist DuckDB file
+      - ./db:/data                  # persist DuckDB file, accessible from host
     environment:
       DB_PATH: /data/spendwisely.duckdb
     env_file:
@@ -35,5 +35,3 @@ services:
     depends_on:
       - backend
 
-volumes:
-  spendwisely_db:

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { GmailSettings } from "@/components/GmailSettings";
 
 type Provider = "gemini" | "claude" | "openai";
 
@@ -42,9 +43,11 @@ const PROVIDERS: {
   },
 ];
 
+type Tab = "ai" | "gmail";
 type Props = { open: boolean; onClose: () => void };
 
 export function LLMSettings({ open, onClose }: Props) {
+  const [tab, setTab] = useState<Tab>("ai");
   const [provider, setProvider] = useState<Provider>("gemini");
   const [apiKey, setApiKey] = useState("");
   const [keySet, setKeySet] = useState(false);
@@ -90,13 +93,33 @@ export function LLMSettings({ open, onClose }: Props) {
 
         {/* Header */}
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold">AI Settings</h2>
+          <h2 className="text-sm font-semibold">Settings</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
         </div>
 
+        {/* Tabs */}
+        <div className="px-5 pt-3 flex gap-4 border-b border-border">
+          {(["ai", "gmail"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`pb-2.5 text-xs font-medium border-b-2 transition-colors ${
+                tab === t
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t === "ai" ? "AI Provider" : "Gmail"}
+            </button>
+          ))}
+        </div>
+
         <div className="px-5 py-4 space-y-4">
-          {/* Provider selector */}
-          <div>
+          {/* Gmail tab */}
+          <GmailSettings visible={tab === "gmail"} />
+
+          {/* Provider selector — AI tab only */}
+          <div className={tab !== "ai" ? "hidden" : ""}>
             <p className="text-xs text-muted-foreground mb-2">Provider</p>
             <div className="grid grid-cols-3 gap-2">
               {PROVIDERS.map((p) => (
@@ -119,8 +142,8 @@ export function LLMSettings({ open, onClose }: Props) {
             </div>
           </div>
 
-          {/* API key input */}
-          <div>
+          {/* API key input — AI tab only */}
+          <div className={tab !== "ai" ? "hidden" : ""}>
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-xs text-muted-foreground">API Key</p>
               <a
@@ -153,7 +176,7 @@ export function LLMSettings({ open, onClose }: Props) {
             )}
           </div>
 
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {tab === "ai" && error && <p className="text-xs text-destructive">{error}</p>}
           {saved && <p className="text-xs text-emerald-600">✓ Saved — AI is ready to use</p>}
         </div>
 
@@ -163,15 +186,17 @@ export function LLMSettings({ open, onClose }: Props) {
             onClick={onClose}
             className="text-xs px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors"
           >
-            Cancel
+            {tab === "gmail" ? "Close" : "Cancel"}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !apiKey.trim()}
-            className="text-xs px-4 py-1.5 rounded-md bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 transition-colors font-medium"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
+          {tab === "ai" && (
+            <button
+              onClick={handleSave}
+              disabled={saving || !apiKey.trim()}
+              className="text-xs px-4 py-1.5 rounded-md bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 transition-colors font-medium"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          )}
         </div>
       </div>
     </div>

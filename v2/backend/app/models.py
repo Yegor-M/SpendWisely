@@ -27,7 +27,8 @@ class Transaction(BaseModel):
 
 
 class TransactionPatch(BaseModel):
-    category: str
+    category: Optional[str] = None
+    counterparty: Optional[str] = None
 
 
 class CategoryRule(BaseModel):

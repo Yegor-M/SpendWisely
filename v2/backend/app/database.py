@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS category_rules (
 
 CREATE SEQUENCE IF NOT EXISTS category_rules_seq START 1;
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   VARCHAR PRIMARY KEY,
+    value VARCHAR
+);
+
 CREATE TABLE IF NOT EXISTS manual_transactions (
     id          VARCHAR PRIMARY KEY,
     booking_date DATE,
