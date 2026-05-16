@@ -74,11 +74,14 @@ async def exchange_code(
 async def refresh_access_token(
     client_id: str, client_secret: str, old_token: dict
 ) -> dict:
+    refresh_token = old_token.get("refresh_token")
+    if not refresh_token:
+        raise ValueError("No refresh_token in stored Gmail token — re-authorize via /gmail/auth-url")
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             _TOKEN_URL,
             data={
-                "refresh_token": old_token["refresh_token"],
+                "refresh_token": refresh_token,
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "grant_type": "refresh_token",

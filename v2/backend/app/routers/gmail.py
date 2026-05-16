@@ -3,8 +3,9 @@ Gmail OAuth2 endpoints + BLIK enrichment.
 
 Setup:
   1. Create OAuth2 credentials in Google Cloud Console (Web application type).
-  2. Add http://localhost:8000/api/v1/gmail/callback as an authorised redirect URI.
-  3. Set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET in .env.
+  2. Add the redirect URI as an authorised redirect URI in Google Cloud Console.
+  3. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET in .env.
+     Optionally set GMAIL_REDIRECT_URI (default: http://localhost:8000/api/v1/gmail/callback).
   4. Visit GET /api/v1/gmail/auth-url, open the returned URL, authorise.
   5. Tokens are stored in the app_settings table automatically.
 """
@@ -23,7 +24,6 @@ from app.services import gmail as gmail_svc
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
-_REDIRECT_URI = "http://localhost:8000/api/v1/gmail/callback"
 _BLIK_REF_RE = re.compile(r"BLIK\s+REF\s+(\d+)", re.IGNORECASE)
 
 
@@ -91,7 +91,7 @@ def gmail_status():
 @router.get("/auth-url")
 def get_auth_url():
     _require_credentials()
-    url = gmail_svc.get_auth_url(settings.gmail_client_id, _REDIRECT_URI)
+    url = gmail_svc.get_auth_url(settings.gmail_client_id, settings.gmail_redirect_uri)
     return {"url": url}
 
 
@@ -100,7 +100,7 @@ async def gmail_callback(code: str = Query(...)):
     _require_credentials()
     try:
         token = await gmail_svc.exchange_code(
-            settings.gmail_client_id, settings.gmail_client_secret, code, _REDIRECT_URI
+            settings.gmail_client_id, settings.gmail_client_secret, code, settings.gmail_redirect_uri
         )
         _save_token(token)
     except Exception as e:

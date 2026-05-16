@@ -77,6 +77,12 @@ data/                   Gitignored — personal bank CSV exports
 - `GET /transactions/aggregate` returns `{count, total_expenses, total_income, net}` for any filter combination — same params as `GET /transactions` minus limit/offset. Used by the transactions page footer.
 - `TransactionsTable` filter effect uses a `stale` boolean flag (not AbortController) to ignore responses from cancelled effect runs. Never call `setLoading(false)` in the cleanup — only the current effect's `.finally()` should clear loading state.
 - `GET /insights/recurring-summary` always caps at 6 months regardless of period param — intentional, shows current rates not historical tiers.
+- `GET /categories/rules` returns `id` field — use it to delete rules via `DELETE /categories/rules/{id}`. Priority 8 = hand-crafted rules; priority 5 = auto-generated from import review.
+- `PATCH /transactions/{id}` accepts `{category?, counterparty?}` — either or both fields.
+- `app_settings` table stores key/value pairs (currently only `gmail_token`). Add rows directly; no migration needed.
+- PAYPRO S.A. = PayPro S.A. = Przelewy24 — same company. Do NOT add a blanket PAYPRO→Travel rule; it processes flights (Wizz Air via Adyen), food (Restaumatic), shoes (FOOTSSHOP), gyms (INVICTUS), etc. Enrich per-transaction via Gmail MCP instead.
+- Gmail MCP (`mcp__claude_ai_Gmail__search_threads`) can identify BLIK merchants: search by BLIK REF number first (exact), fall back to `from:przelewy24.pl after:YYYY/MM/DD before:YYYY/MM/DD amount`.
+- In-app Gmail OAuth is implemented but dormant — needs `GMAIL_CLIENT_ID`/`GMAIL_CLIENT_SECRET` in `.env` and Google Cloud OAuth2 Web credential with `http://localhost:8000/api/v1/gmail/callback` as redirect URI. See `routers/gmail.py` docstring.
 - `_recurring_entry()` returns `amount_min` and `amount_max`; RecurringCostsCard shows `min–max` range when `(max-min)/max > 5%`.
 - Insights period selector always writes `?period=X` to URL (never deletes param). Default is `3m`. `period=all` maps to `months=0` which is falsy in JS, so no `months` param is sent → backend returns all data. Careful: `_period(df, 0)` would filter to current month only — `0` must never reach the backend.
 - `notes/` and `context/private/` are gitignored — safe for personal tax/financial context files.
@@ -103,8 +109,9 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [x] Recurring split, EOM projection fix, expected income, daily spend chart (PR #9)
 - [x] Transactions tab search/filter + aggregate footer
 - [x] Insights overhaul — monthly breakdown, recurring fixes, security cleanup (PR #11)
+- [x] Gmail BLIK enrichment (nice-to-have), BLIK dedup fix, category rules cleanup (PR #13)
 - [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service env
-- [ ] Expand regex rules: BINANCE, personal transfers, ADMINISTRATRACJA, SZOPEX
+- [ ] Expand regex rules: BINANCE, personal transfers, SZOPEX
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Category edit inline on transactions page

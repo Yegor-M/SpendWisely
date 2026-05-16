@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     gmail_client_id: str = ""      # Google OAuth2 client id
     gmail_client_secret: str = ""  # Google OAuth2 client secret
+    gmail_redirect_uri: str = "http://localhost:8000/api/v1/gmail/callback"
 
     class Config:
         env_file = ".env"
