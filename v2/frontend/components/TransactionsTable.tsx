@@ -30,9 +30,115 @@ function catColor(cat: string) {
 const fmt = (n: number) =>
   new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 2 }).format(n);
 
-function TxRow({ tx }: { tx: Transaction }) {
+function TxRow({
+  tx,
+  categories,
+  onUpdated,
+}: {
+  tx: Transaction;
+  categories: string[];
+  onUpdated: (updated: Transaction) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editCP, setEditCP]   = useState(tx.counterparty ?? "");
+  const [editCat, setEditCat] = useState(tx.category);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState("");
+
+  // Always include the current category and "Uncategorized" in the list
+  const catOptions = Array.from(
+    new Set(["Uncategorized", ...categories, editCat])
+  );
+
+  function startEdit() {
+    setEditCP(tx.counterparty ?? "");
+    setEditCat(tx.category);
+    setError("");
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setError("");
+  }
+
+  async function save() {
+    const body: { category?: string; counterparty?: string } = {};
+    if (editCat !== tx.category) body.category = editCat;
+    if (editCP !== (tx.counterparty ?? "")) body.counterparty = editCP;
+    if (!Object.keys(body).length) { cancel(); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api.patchTransaction(tx.id, body);
+      onUpdated(updated);
+      setEditing(false);
+    } catch {
+      setError("Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <TableRow className="bg-blue-50/40">
+        <TableCell className="text-sm tabular-nums whitespace-nowrap">{tx.booking_date}</TableCell>
+        <TableCell className="max-w-[180px]">
+          <input
+            value={editCP}
+            onChange={(e) => setEditCP(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") cancel(); else if (e.key === "Enter") save(); }}
+            className="w-full text-sm rounded border border-input bg-background px-2 py-0.5 outline-none focus-visible:border-ring"
+            autoFocus
+            aria-label="Edit counterparty"
+          />
+        </TableCell>
+        <TableCell className="text-sm max-w-[240px] truncate text-muted-foreground" title={tx.title}>
+          {tx.title}
+        </TableCell>
+        <TableCell>
+          <Select value={editCat} onValueChange={(v) => { if (v) setEditCat(v); }}>
+            <SelectTrigger className="h-7 text-xs min-w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {catOptions.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
+        <TableCell className={`text-right tabular-nums font-medium ${tx.direction === "expense" ? "text-red-600" : "text-green-600"}`}>
+          {tx.direction === "expense" ? "−" : "+"}
+          {fmt(tx.abs_amount)}
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">{tx.currency}</TableCell>
+        <TableCell className="text-right whitespace-nowrap">
+          <div className="flex items-center justify-end gap-1">
+            {error && <span className="text-xs text-red-500 mr-1">{error}</span>}
+            <button
+              onClick={save}
+              disabled={saving}
+              className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? "…" : "Save"}
+            </button>
+            <button
+              onClick={cancel}
+              disabled={saving}
+              className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
-    <TableRow className={tx.direction === "income" ? "bg-green-50/30" : ""}>
+    <TableRow className={`group ${tx.direction === "income" ? "bg-green-50/30" : ""}`}>
       <TableCell className="text-sm tabular-nums whitespace-nowrap">{tx.booking_date}</TableCell>
       <TableCell className="text-sm max-w-[180px] truncate" title={tx.counterparty}>
         {tx.counterparty || <span className="text-muted-foreground italic">—</span>}
@@ -48,6 +154,16 @@ function TxRow({ tx }: { tx: Transaction }) {
         {fmt(tx.abs_amount)}
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">{tx.currency}</TableCell>
+      <TableCell className="w-8 p-1">
+        <button
+          onClick={startEdit}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground rounded"
+          title="Edit transaction"
+          aria-label="Edit transaction"
+        >
+          ✎
+        </button>
+      </TableCell>
     </TableRow>
   );
 }
@@ -252,20 +368,30 @@ export function TransactionsTable({
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Currency</TableHead>
+              <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
+                    {Array.from({ length: 7 }).map((__, j) => (
                       <TableCell key={j}>
                         <div className="h-4 bg-muted animate-pulse rounded" />
                       </TableCell>
                     ))}
                   </TableRow>
                 ))
-              : txs.map((tx) => <TxRow key={tx.id} tx={tx} />)
+              : txs.map((tx) => (
+                  <TxRow
+                    key={tx.id}
+                    tx={tx}
+                    categories={categories}
+                    onUpdated={(updated) =>
+                      setTxs((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+                    }
+                  />
+                ))
             }
           </TableBody>
         </Table>
