@@ -1,13 +1,11 @@
 """
-Improved Pekao bank CSV parser.
+Multi-bank CSV/XLSX parser.
 
-Key improvements over v1:
-- FX pair detection: both USD-debit and PLN-credit sides of a currency exchange
-  are marked is_internal=True so they never pollute spending totals.
-- Own-account transfer detection via owner name config.
-- Blank counterparty derivation from title.
-- Hash-based deduplication ID so re-importing the same export is safe.
-- Bank 'Kategoria' column preserved and passed downstream.
+Supported banks:
+- Pekao (semicolon-delimited CSV, DD.MM.YYYY dates, Polish headers)
+- Millennium (Excel XLSX, datetime objects, split Debits/Credits columns)
+
+Auto-detection via detect_and_parse() — routes by file extension and header sniff.
 """
 from __future__ import annotations
 
@@ -189,3 +187,97 @@ def parse_csv(path: str | Path, owner_name: str = "") -> pd.DataFrame:
     ]
     cols = [c for c in priority if c in df.columns]
     return df[cols]
+
+
+# ---------------------------------------------------------------------------
+# Millennium Bank XLSX parser
+# ---------------------------------------------------------------------------
+
+# Description field for card purchases: "MERCHANT NAME  CITY COUNTRY\xa0YYYY-MM-DD"
+_MILLENNIUM_DESC_RE = re.compile(r"^(.+?)\s{2,}.+$")
+
+_MILLENNIUM_INTERNAL_PATTERNS = re.compile(
+    r"(przelew własny|przelew między rachunkami|transfer wewnętrzny|własny rachunek)",
+    re.IGNORECASE,
+)
+
+
+def _millennium_counterparty(row: pd.Series) -> str:
+    sender = _norm(row.get("Benefeciary/Sender", ""))
+    if sender:
+        return sender
+    desc = _norm(row.get("Description", ""))
+    m = _MILLENNIUM_DESC_RE.match(desc)
+    if m:
+        return m.group(1).strip()
+    return desc
+
+
+def parse_millennium_xlsx(path: str | Path, owner_name: str = "") -> pd.DataFrame:
+    path = Path(path)
+    raw = pd.read_excel(path, header=0, dtype=str)
+    raw.columns = raw.columns.str.strip()
+
+    df = pd.DataFrame()
+    df["booking_date"] = pd.to_datetime(raw["Transaction date"], errors="coerce")
+    df["value_date"] = pd.to_datetime(raw["Settlement date"], errors="coerce")
+
+    debits = pd.to_numeric(raw.get("Debits", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    credits = pd.to_numeric(raw.get("Credits", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    df["amount"] = debits + credits
+
+    df["currency"] = raw.get("Currency", pd.Series("PLN", index=raw.index)).apply(_norm).replace("", "PLN")
+    df["operation_type"] = raw.get("Transaction Type", pd.Series("", index=raw.index)).apply(_norm)
+    df["counterparty"] = raw.apply(_millennium_counterparty, axis=1)
+    df["title"] = raw.get("Description", pd.Series("", index=raw.index)).apply(_norm)
+    df["source_account"] = raw.get("Account/Card Number", pd.Series("", index=raw.index)).apply(_norm)
+    df["target_account"] = raw.get("To account/From account", pd.Series("", index=raw.index)).apply(_norm)
+
+    for col in ["counterparty_address", "bank_category", "reference"]:
+        df[col] = ""
+
+    df["direction"] = df["amount"].apply(lambda v: "expense" if v < 0 else "income")
+    df["abs_amount"] = df["amount"].abs()
+    df["month"] = df["booking_date"].dt.to_period("M").astype(str)
+    df["category"] = "Uncategorized"
+    df["is_internal"] = df["title"].apply(
+        lambda t: bool(_MILLENNIUM_INTERNAL_PATTERNS.search(t)) or bool(_FX_PATTERN.search(t))
+    )
+    df.loc[df["is_internal"], "direction"] = "internal"
+    df["source_file"] = path.name
+
+    df["id"] = df.apply(
+        lambda r: hashlib.sha1(
+            f"{r.get('booking_date','')}{r.get('amount','')}{r.get('title','')}".encode()
+        ).hexdigest()[:16],
+        axis=1,
+    )
+
+    priority = [
+        "id", "booking_date", "value_date", "month", "direction", "counterparty",
+        "title", "amount", "abs_amount", "currency", "category", "bank_category",
+        "is_internal", "operation_type", "counterparty_address",
+        "source_account", "target_account", "reference", "source_file",
+    ]
+    cols = [c for c in priority if c in df.columns]
+    return df[cols]
+
+
+# ---------------------------------------------------------------------------
+# Auto-detecting dispatcher
+# ---------------------------------------------------------------------------
+
+_MILLENNIUM_HEADERS = {"Transaction date", "Debits", "Credits", "Benefeciary/Sender"}
+
+
+def detect_and_parse(path: str | Path, owner_name: str = "") -> pd.DataFrame:
+    """Route to the correct bank parser based on file extension and headers."""
+    path = Path(path)
+    if path.suffix.lower() == ".xlsx":
+        # Peek at column names to confirm Millennium format
+        peek = pd.read_excel(path, header=0, nrows=0)
+        if _MILLENNIUM_HEADERS.issubset(set(peek.columns.str.strip())):
+            return parse_millennium_xlsx(path, owner_name)
+        raise ValueError(f"Unrecognised XLSX format. Headers: {list(peek.columns)}")
+    # Default: Pekao CSV
+    return parse_csv(path, owner_name)

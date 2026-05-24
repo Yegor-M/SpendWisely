@@ -36,6 +36,8 @@ services:
         NEXT_PUBLIC_API_URL: /api/v1   # nginx rewrites /api → backend
     expose:
       - "3000"
+    environment:
+      API_URL: http://backend:8000/api/v1   # SSR server-side fetch
     restart: unless-stopped
 
   nginx:

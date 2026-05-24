@@ -4,7 +4,7 @@
 - **Backend** — Python 3.11, FastAPI, DuckDB (single-file), Pydantic v2
 - **Frontend** — Next.js 16, TypeScript, Tailwind, shadcn/ui, Recharts
 - **AI** — Universal LLM provider (Claude/OpenAI/Gemini) for batch transaction categorisation; defaults to `gemini-2.0-flash` (free tier)
-- **Data** — Pekao bank CSV (semicolon-delimited, Polish locale, utf-8-sig)
+- **Data** — Pekao bank CSV (semicolon-delimited, Polish locale, utf-8-sig); Millennium Bank XLSX (auto-detected)
 
 ## Key commands
 ```bash
@@ -25,7 +25,7 @@ cd v1/app && python main.py ../../data/oct-march-all.csv
 ## Project structure
 ```
 v2/backend/app/
-  services/parser.py    CSV ingest — FX detection, counterparty derivation, hash dedup, salary month fix
+  services/parser.py    Multi-bank ingest (Pekao CSV + Millennium XLSX) — FX detection, counterparty derivation, hash dedup, salary month fix; `detect_and_parse()` auto-routes by extension+headers
   services/enricher.py  3-pass categorisation: bank Kategoria → regex → LLM fallback (any provider)
   services/llm.py       Universal LLM provider: ClaudeProvider / OpenAIProvider / GeminiProvider + factory
   services/insights.py  Analytics — excludes is_internal rows (fixes FX double-count)
@@ -111,7 +111,7 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [x] Insights overhaul — monthly breakdown, recurring fixes, security cleanup (PR #11)
 - [x] Gmail BLIK enrichment (nice-to-have), BLIK dedup fix, category rules cleanup (PR #13)
 - [x] Fix Gmail redirect URI hardcoding — `GMAIL_REDIRECT_URI` env var; guard refresh_token KeyError
-- [ ] Fix `docker-compose.prod.yml` — add `API_URL: http://backend:8000/api/v1` to frontend service env
+- [x] Millennium Bank XLSX support, show/hide fix, bank-agnostic empty state, prod docker API_URL (PR #15)
 - [ ] Expand regex rules: BINANCE, personal transfers, SZOPEX
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
