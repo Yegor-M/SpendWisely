@@ -163,13 +163,15 @@ export function LLMSettings({ open, onClose }: Props) {
                 placeholder={keySet ? "••••••••  (key already saved)" : info.keyPlaceholder}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm pr-16 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {showKey ? "hide" : "show"}
-              </button>
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showKey ? "hide" : "show"}
+                </button>
+              )}
             </div>
             {keySet && !apiKey && (
               <p className="text-[11px] text-emerald-600 mt-1">✓ Key configured — paste a new one to update</p>

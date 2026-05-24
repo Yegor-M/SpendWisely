@@ -35,7 +35,8 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
         router.refresh();
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setError(msg.includes("Failed to fetch") ? "Cannot reach the server — is the backend running?" : msg);
     } finally {
       setLoading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -57,7 +58,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
         >
           {loading ? "Importing…" : "Import CSV"}
         </button>
-        <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleUpload} />
+        <input ref={inputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleUpload} />
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 

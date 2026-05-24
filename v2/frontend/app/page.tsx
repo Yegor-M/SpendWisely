@@ -47,7 +47,7 @@ export default async function Dashboard({
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
           <div className="text-center space-y-2">
             <h2 className="text-xl font-semibold">No data yet</h2>
-            <p className="text-muted-foreground text-sm">Upload a Pekao bank CSV to get started.</p>
+            <p className="text-muted-foreground text-sm">Upload your bank CSV or XLSX to get started.</p>
           </div>
           <UploadCsv />
         </div>

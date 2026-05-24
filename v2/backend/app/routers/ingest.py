@@ -4,7 +4,7 @@ import re
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from app.database import db
 from app.models import IngestResult, UncategorizedGroup
-from app.services.parser import parse_csv
+from app.services.parser import detect_and_parse
 from app.services.enricher import BankEnricher
 from app.config import settings
 import tempfile, os
@@ -22,15 +22,18 @@ async def ingest_csv(
     provider: str  = Query(default="",    description="Override LLM provider (claude|openai|gemini)"),
     model: str     = Query(default="",    description="Override model name"),
 ):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(400, "Only .csv files are supported")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".csv", ".xlsx"):
+        raise HTTPException(400, "Only .csv and .xlsx files are supported")
 
-    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
-        df = parse_csv(tmp_path, owner_name=settings.owner_name)
+        df = detect_and_parse(tmp_path, owner_name=settings.owner_name)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     finally:
         os.unlink(tmp_path)
 
