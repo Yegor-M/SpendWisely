@@ -8,10 +8,9 @@ const pln = (n: number) =>
 const usd = (n: number) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 
-export function SummaryCards({ data, monthData }: { data: Summary; monthData?: Summary }) {
-  const bal          = monthData ?? data;
-  const isPositive   = bal.net_balance >= 0;
-  const netUsd       = data.implied_fx_rate > 0 ? bal.net_balance / data.implied_fx_rate : 0;
+export function SummaryCards({ data, periodLabel }: { data: Summary; periodLabel?: string }) {
+  const isPositive   = data.net_balance >= 0;
+  const netUsd       = data.implied_fx_rate > 0 ? data.net_balance / data.implied_fx_rate : 0;
   const hasSalary    = data.usd_salary_total > 0;
   const balanceColor = isPositive ? "text-emerald-400" : "text-red-400";
 
@@ -28,16 +27,16 @@ export function SummaryCards({ data, monthData }: { data: Summary; monthData?: S
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
-            <p className={`text-5xl font-black tracking-tighter leading-none ${balanceColor}`}>
-              {pln(bal.net_balance)}
+            <p className={`font-heading text-5xl font-normal tracking-tight leading-none ${balanceColor}`}>
+              {pln(data.net_balance)}
             </p>
             <p className="text-xl font-semibold tracking-tight text-background/40">
               ≈ ${usd(netUsd)}
             </p>
             <p className="text-[12px] text-background/40 pt-1">
-              this month · savings rate{" "}
+              {periodLabel ?? "all time"} · savings rate{" "}
               <span className={balanceColor}>
-                {bal.savings_rate_pct > 0 ? "+" : ""}{bal.savings_rate_pct.toFixed(1)}%
+                {data.savings_rate_pct > 0 ? "+" : ""}{data.savings_rate_pct.toFixed(1)}%
               </span>
             </p>
           </CardContent>
@@ -51,7 +50,7 @@ export function SummaryCards({ data, monthData }: { data: Summary; monthData?: S
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-0.5">
-            <p className="text-4xl font-black tracking-tighter leading-none" style={{ color: "oklch(0.62 0.175 148)" }}>
+            <p className="font-heading text-4xl font-normal tracking-tight leading-none" style={{ color: "oklch(0.62 0.175 148)" }}>
               {pln(data.avg_monthly_income)}
             </p>
             <p className="text-[13px] text-muted-foreground font-medium">PLN / month</p>
@@ -74,7 +73,7 @@ export function SummaryCards({ data, monthData }: { data: Summary; monthData?: S
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-0.5">
-            <p className="text-4xl font-black tracking-tighter leading-none" style={{ color: "oklch(0.58 0.200 25)" }}>
+            <p className="font-heading text-4xl font-normal tracking-tight leading-none" style={{ color: "oklch(0.58 0.200 25)" }}>
               {pln(data.avg_monthly_expenses)}
             </p>
             <p className="text-[13px] text-muted-foreground font-medium">PLN / month</p>
