@@ -213,9 +213,9 @@ def _millennium_counterparty(row: pd.Series) -> str:
     return desc
 
 
-def parse_millennium_xlsx(path: str | Path, owner_name: str = "") -> pd.DataFrame:
-    path = Path(path)
-    raw = pd.read_excel(path, header=0, dtype=str)
+def _parse_millennium_df(raw: pd.DataFrame, source_name: str, owner_name: str = "") -> pd.DataFrame:
+    """Shared logic for both Millennium CSV and XLSX — accepts a raw DataFrame."""
+    raw = raw.copy()
     raw.columns = raw.columns.str.strip()
 
     df = pd.DataFrame()
@@ -244,14 +244,15 @@ def parse_millennium_xlsx(path: str | Path, owner_name: str = "") -> pd.DataFram
         lambda t: bool(_MILLENNIUM_INTERNAL_PATTERNS.search(t)) or bool(_FX_PATTERN.search(t))
     )
     df.loc[df["is_internal"], "direction"] = "internal"
-    df["source_file"] = path.name
+    df["source_file"] = source_name
 
-    df["id"] = df.apply(
-        lambda r: hashlib.sha1(
-            f"{r.get('booking_date','')}{r.get('amount','')}{r.get('title','')}".encode()
-        ).hexdigest()[:16],
-        axis=1,
-    )
+    balance = pd.to_numeric(raw.get("Balance", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    df["id"] = [
+        hashlib.sha1(
+            f"{df.at[i, 'booking_date']}{df.at[i, 'amount']}{df.at[i, 'title']}{balance.iat[i]}".encode()
+        ).hexdigest()[:16]
+        for i in range(len(df))
+    ]
 
     priority = [
         "id", "booking_date", "value_date", "month", "direction", "counterparty",
@@ -259,8 +260,19 @@ def parse_millennium_xlsx(path: str | Path, owner_name: str = "") -> pd.DataFram
         "is_internal", "operation_type", "counterparty_address",
         "source_account", "target_account", "reference", "source_file",
     ]
-    cols = [c for c in priority if c in df.columns]
-    return df[cols]
+    return df[[c for c in priority if c in df.columns]]
+
+
+def parse_millennium_xlsx(path: str | Path, owner_name: str = "") -> pd.DataFrame:
+    path = Path(path)
+    raw = pd.read_excel(path, header=0, dtype=str)
+    return _parse_millennium_df(raw, path.name, owner_name)
+
+
+def parse_millennium_csv(path: str | Path, owner_name: str = "") -> pd.DataFrame:
+    path = Path(path)
+    raw = pd.read_csv(path, sep=",", dtype=str, encoding="utf-8-sig")
+    return _parse_millennium_df(raw, path.name, owner_name)
 
 
 # ---------------------------------------------------------------------------
@@ -274,10 +286,12 @@ def detect_and_parse(path: str | Path, owner_name: str = "") -> pd.DataFrame:
     """Route to the correct bank parser based on file extension and headers."""
     path = Path(path)
     if path.suffix.lower() == ".xlsx":
-        # Peek at column names to confirm Millennium format
         peek = pd.read_excel(path, header=0, nrows=0)
         if _MILLENNIUM_HEADERS.issubset(set(peek.columns.str.strip())):
             return parse_millennium_xlsx(path, owner_name)
         raise ValueError(f"Unrecognised XLSX format. Headers: {list(peek.columns)}")
-    # Default: Pekao CSV
+    # CSV — sniff headers to distinguish Millennium from Pekao
+    peek = pd.read_csv(path, sep=",", nrows=0, encoding="utf-8-sig")
+    if _MILLENNIUM_HEADERS.issubset(set(peek.columns.str.strip())):
+        return parse_millennium_csv(path, owner_name)
     return parse_csv(path, owner_name)
