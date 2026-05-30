@@ -1,24 +1,26 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 
 type Phase = "idle" | "confirm" | "loading";
 
 export function DeleteAllTransactions() {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleDelete() {
     setPhase("loading");
-    setError(null);
     try {
       await api.deleteAllTransactions();
       router.refresh();
       setPhase("idle");
+      toast.success("All transactions deleted");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      toast.error("Delete failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
       setPhase("idle");
     }
   }
@@ -44,15 +46,12 @@ export function DeleteAllTransactions() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        onClick={() => setPhase("confirm")}
-        disabled={phase === "loading"}
-        className="h-8 px-3.5 rounded-lg text-sm font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
-      >
-        {phase === "loading" ? "Deleting…" : "Delete all"}
-      </button>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
+    <button
+      onClick={() => setPhase("confirm")}
+      disabled={phase === "loading"}
+      className="h-8 px-3.5 rounded-lg text-sm font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+    >
+      {phase === "loading" ? "Deleting…" : "Delete all"}
+    </button>
   );
 }

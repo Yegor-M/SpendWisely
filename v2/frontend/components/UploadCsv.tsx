@@ -1,13 +1,13 @@
 "use client";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { IngestResult } from "@/lib/api";
 import { ImportReview } from "./ImportReview";
 
 export function UploadCsv({ onDone }: { onDone?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IngestResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -15,7 +15,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setLoading(true); setError(null); setResult(null); setReviewing(false);
+    setLoading(true); setResult(null); setReviewing(false);
 
     const fd = new FormData();
     fd.append("file", file);
@@ -29,6 +29,18 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
       const data: IngestResult = await res.json();
       setResult(data);
       onDone?.();
+
+      const parts: string[] = [];
+      if (data.imported > 0) parts.push(`+${data.imported} imported`);
+      if (data.categorized > 0) parts.push(`${data.categorized} categorized`);
+      if (data.duplicates_skipped > 0) parts.push(`${data.duplicates_skipped} skipped`);
+
+      if (data.imported === 0 && data.duplicates_skipped > 0) {
+        toast.info("Nothing new", { description: `${data.duplicates_skipped} duplicate rows skipped` });
+      } else {
+        toast.success("Import complete", { description: parts.join(" · ") });
+      }
+
       if (data.uncategorized_groups.length > 0) {
         setReviewing(true);
       } else {
@@ -36,7 +48,11 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
-      setError(msg.includes("Failed to fetch") ? "Cannot reach the server — is the backend running?" : msg);
+      toast.error("Import failed", {
+        description: msg.includes("Failed to fetch")
+          ? "Cannot reach the server — is the backend running?"
+          : msg,
+      });
     } finally {
       setLoading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -59,24 +75,6 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
           {loading ? "Importing…" : "Import CSV"}
         </button>
         <input ref={inputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleUpload} />
-
-        {error && <p className="text-xs text-red-500">{error}</p>}
-
-        {result && (
-          <div className="flex gap-3 text-[12px] text-muted-foreground">
-            <span className="text-emerald-600 font-medium">+{result.imported} rows</span>
-            {result.categorized > 0 && <span>{result.categorized} categorized</span>}
-            {result.uncategorized > 0 && (
-              <button
-                onClick={() => setReviewing(true)}
-                className="text-amber-600 hover:underline"
-              >
-                {result.uncategorized} uncategorized
-              </button>
-            )}
-            {result.duplicates_skipped > 0 && <span>{result.duplicates_skipped} skipped</span>}
-          </div>
-        )}
       </div>
 
       {reviewing && result && result.uncategorized_groups.length > 0 && (
