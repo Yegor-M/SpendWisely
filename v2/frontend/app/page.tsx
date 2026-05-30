@@ -21,21 +21,26 @@ export default async function Dashboard({
 }) {
   const params = await searchParams;
   const tab    = params.tab    ?? "overview";
-  const period = params.period ?? "all";
+  const period = params.period ?? "3m";
   const months =
     period === "1m" ? 1 :
     period === "3m" ? 3 :
     period === "6m" ? 6 :
     undefined;
 
-  const [summary, currentMonth, monthly, categories, merchants, recurring] = await Promise.allSettled([
+  const [summary, monthly, categories, merchants, recurring] = await Promise.allSettled([
     api.summary(months),
-    api.summary(1),
     api.monthly(months),
     api.categories(months),
     api.merchants(10, months),
     api.recurring(months),
   ]);
+
+  const periodLabel =
+    period === "1m" ? "last month" :
+    period === "3m" ? "last 3 months" :
+    period === "6m" ? "last 6 months" :
+    "all time";
 
   const hasSummary =
     summary.status === "fulfilled" &&
@@ -71,10 +76,7 @@ export default async function Dashboard({
 
           {/* ── Summary cards (always visible) ─────────────────────── */}
           {summary.status === "fulfilled" && (
-            <SummaryCards
-              data={summary.value}
-              monthData={currentMonth.status === "fulfilled" ? currentMonth.value : undefined}
-            />
+            <SummaryCards data={summary.value} periodLabel={periodLabel} />
           )}
 
           {/* ── Overview tab ───────────────────────────────────────── */}
