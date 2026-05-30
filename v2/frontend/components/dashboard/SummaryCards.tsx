@@ -27,7 +27,7 @@ export function SummaryCards({ data, periodLabel }: { data: Summary; periodLabel
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
-            <p className={`text-5xl font-black tracking-tighter leading-none ${balanceColor}`}>
+            <p className={`font-heading text-5xl font-normal tracking-tight leading-none ${balanceColor}`}>
               {pln(data.net_balance)}
             </p>
             <p className="text-xl font-semibold tracking-tight text-background/40">
@@ -50,7 +50,7 @@ export function SummaryCards({ data, periodLabel }: { data: Summary; periodLabel
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-0.5">
-            <p className="text-4xl font-black tracking-tighter leading-none" style={{ color: "oklch(0.62 0.175 148)" }}>
+            <p className="font-heading text-4xl font-normal tracking-tight leading-none" style={{ color: "oklch(0.62 0.175 148)" }}>
               {pln(data.avg_monthly_income)}
             </p>
             <p className="text-[13px] text-muted-foreground font-medium">PLN / month</p>
@@ -73,7 +73,7 @@ export function SummaryCards({ data, periodLabel }: { data: Summary; periodLabel
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-0.5">
-            <p className="text-4xl font-black tracking-tighter leading-none" style={{ color: "oklch(0.58 0.200 25)" }}>
+            <p className="font-heading text-4xl font-normal tracking-tight leading-none" style={{ color: "oklch(0.58 0.200 25)" }}>
               {pln(data.avg_monthly_expenses)}
             </p>
             <p className="text-[13px] text-muted-foreground font-medium">PLN / month</p>
