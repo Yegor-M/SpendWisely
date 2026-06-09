@@ -112,6 +112,7 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [x] Gmail BLIK enrichment (nice-to-have), BLIK dedup fix, category rules cleanup (PR #13)
 - [x] Fix Gmail redirect URI hardcoding — `GMAIL_REDIRECT_URI` env var; guard refresh_token KeyError
 - [x] Millennium Bank XLSX support, show/hide fix, bank-agnostic empty state, prod docker API_URL (PR #15)
+- [x] Groq default provider, category management modal, regex expansion, import UX + animations (PR #17)
 - [ ] Expand regex rules: BINANCE, personal transfers, SZOPEX
 - [ ] Phase 3: Apple Wallet export parsing endpoint
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
