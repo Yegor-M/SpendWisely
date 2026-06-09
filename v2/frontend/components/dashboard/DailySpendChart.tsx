@@ -91,9 +91,17 @@ export function DailySpendChart() {
   const [loading, setLoading] = useState(true);
   const isCurrentMonth = month >= toYM(today);
 
-  useEffect(() => {
+  const fetchData = () => {
     setLoading(true);
     api.dailySpend(month).then(setData).finally(() => setLoading(false));
+  };
+
+  useEffect(fetchData, [month]);
+
+  useEffect(() => {
+    window.addEventListener("spendwisely:import", fetchData);
+    return () => window.removeEventListener("spendwisely:import", fetchData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
   const activeDays = data?.days.filter((d) =>

@@ -84,7 +84,7 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
   // Auto-dismiss when result is in and coverage >= 80%
   useEffect(() => {
     if (!applyResult) return;
-    if (totalPct < 80) return;
+    if (totalPct < 100) return;
     const t1 = setTimeout(() => setIsDismissing(true), 1900);
     const t2 = setTimeout(() => { router.push("/"); onDone(); }, 2500);
     timers.current = [t1, t2];
@@ -204,15 +204,15 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
                   {applyResult.extra > 0 && ` · ${applyResult.extra} older also updated`}
                 </p>
               )}
-              {totalPct >= 80 ? (
+              {totalPct >= 100 ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {totalPct}% covered — closing automatically…
+                  100% covered — closing automatically…
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">{totalPct}% of import categorized</p>
               )}
             </div>
-            {totalPct < 80 && (
+            {totalPct < 100 && (
               <button
                 onClick={onDone}
                 className="mt-1 px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/90 transition-colors"

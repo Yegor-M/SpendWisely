@@ -45,6 +45,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
         setReviewing(true);
       } else {
         router.refresh();
+        notifyImport();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
@@ -59,9 +60,14 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
     }
   }
 
+  function notifyImport() {
+    window.dispatchEvent(new CustomEvent("spendwisely:import"));
+  }
+
   function handleReviewDone() {
     setReviewing(false);
     router.refresh();
+    notifyImport();
   }
 
   return (
