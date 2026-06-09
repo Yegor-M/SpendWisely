@@ -4,9 +4,10 @@ Personal finance tracker built on bank CSV exports. Understand your spending to 
 
 ## Features
 
-- **Import** — drop in a bank CSV export; duplicates are skipped automatically; post-import review modal surfaces uncategorized merchants with AI suggestions
-- **Smart categorisation** — 3-pass pipeline achieves ~96% coverage: bank's own `Kategoria` → regex rules → Claude/OpenAI/Gemini fallback
+- **Import** — drop in a Pekao CSV or Millennium XLSX; duplicates skipped automatically; post-import review modal surfaces uncategorized merchants with AI suggestions
+- **Smart categorisation** — 3-pass pipeline achieves ~96% coverage: bank's own `Kategoria` → regex rules (150+ Polish brands) → Groq/Claude/OpenAI/Gemini fallback
 - **FX-aware** — USD↔PLN exchanges are detected and excluded from all spend totals; USD salary is converted via implied rate derived from paired FX rows
+- **Category management** — rename categories with automatic rule + transaction remapping; delete categories and reset transactions to Uncategorized
 - **Dashboard** — monthly cash flow P&L chart, stacked daily spend chart, category breakdown, top merchants, recurring subscriptions
 - **Insights** — MoM category deltas, recurring cost breakdown, savings rate trend, new merchants detector, anomalies, DOW patterns, lifestyle inflation signal
 - **Plan tab** — this-month checklist (Bills / Daily / One-time), expected income, EOM projection, next-month predictions per category with trend arrows and sparklines
@@ -18,8 +19,8 @@ Personal finance tracker built on bank CSV exports. Understand your spending to 
 |---|---|
 | Backend | Python · FastAPI · DuckDB |
 | Frontend | Next.js 16 · TypeScript · Tailwind · shadcn/ui · Recharts |
-| AI | Claude / OpenAI / Gemini (pluggable; free Gemini tier by default) |
-| Data | Pekao bank CSV (semicolon-delimited, Polish locale) |
+| AI | Claude / OpenAI / Gemini / Groq (pluggable; free Groq tier by default) |
+| Data | Pekao bank CSV · Millennium Bank XLSX (auto-detected) |
 
 ## Getting started
 
@@ -37,18 +38,19 @@ Source files are mounted as volumes — Python and TypeScript changes are picked
 
 **Enable AI categorisation (optional but recommended)**
 
-The app works without an API key — transactions are categorised by bank category + regex rules (~70% coverage). To unlock the AI pass and the "Suggest with AI" button in the import modal:
+The app works without an API key — transactions are categorised by bank category + regex rules (~70% coverage). To unlock the "Suggest with AI" button in the import review modal:
 
-1. Get a **free** Gemini key at https://aistudio.google.com/apikey (no billing required)
+1. Get a **free** Groq key at https://console.groq.com/keys (14,400 req/day, no billing)
 2. Open http://localhost:3000 → click **⚙ AI Settings** at the bottom of the sidebar
-3. Select Gemini, paste the key, Save
+3. Select Groq, paste the key (`gsk_...`), Save
 
 Or set it in `.env` before starting:
 ```
-GOOGLE_API_KEY=AIza...
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...
 ```
 
-Then import a CSV: **Import Bank CSV** → drop in your export → review uncategorized merchants in the modal → **✦ Suggest with AI** → Apply.
+Then import a file: **Import CSV** → review uncategorized merchants → **✦ Suggest with AI** → Apply. If final coverage reaches 80%+ the modal closes automatically and navigates back to the dashboard.
 
 ## Server deployment
 
@@ -78,13 +80,16 @@ cd v2/frontend && npm run dev
 
 | Variable | Default | Description |
 |---|---|---|
-| `LLM_PROVIDER` | `gemini` | `gemini` \| `claude` \| `openai` |
-| `GOOGLE_API_KEY` | — | Free Gemini key (https://aistudio.google.com/apikey) |
+| `LLM_PROVIDER` | `groq` | `groq` \| `gemini` \| `claude` \| `openai` |
+| `GROQ_API_KEY` | — | Free Groq key — https://console.groq.com/keys (recommended) |
+| `GOOGLE_API_KEY` | — | Free Gemini key — https://aistudio.google.com/apikey |
 | `ANTHROPIC_API_KEY` | — | Claude key (paid) |
 | `OPENAI_API_KEY` | — | OpenAI key (paid) |
-| `LLM_MODEL` | provider default | Override the model (e.g. `gemini-2.0-flash`) |
+| `LLM_MODEL` | provider default | Override the model (e.g. `llama-3.3-70b-versatile`) |
 | `DB_PATH` | `./spendwisely.duckdb` | DuckDB file location |
 | `OWNER_NAME` | — | Your name as it appears in bank transfers — used to detect own-account transactions |
+| `SUGGEST_RATE_LIMIT` | `5` | Max AI suggest requests per IP per window |
+| `SUGGEST_RATE_WINDOW` | `600` | Rate limit window in seconds |
 
 ## Data format
 
@@ -119,10 +124,11 @@ v2/
 
 - [x] v1 — Python pipeline with regex categorisation
 - [x] v2 — FastAPI + DuckDB + Next.js dashboard
-- [x] Claude/OpenAI/Gemini categorisation (pluggable)
+- [x] Claude/OpenAI/Gemini/Groq categorisation (pluggable; Groq free by default)
 - [x] FX double-counting fix + USD salary income
-- [x] Post-import review modal with AI suggestions
+- [x] Post-import review modal with AI suggestions + animated success state
 - [x] Insights, Plan tab, transactions search
+- [x] Millennium Bank XLSX support
+- [x] Category management — rename and delete with remapping
 - [ ] Manual cash entry UI
-- [ ] Inline category editing in transactions table
 - [ ] Apple Wallet export integration

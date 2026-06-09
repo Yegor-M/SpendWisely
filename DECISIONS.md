@@ -70,10 +70,10 @@ When a user assigns a category in the ImportReview modal and checks "save rule",
 **Tradeoff:** LIKE-based retroactive apply is fuzzy (substring match), not the same regex the enricher uses on future imports. Acceptable because counterparty names from Pekao are typically the full merchant name with no substring collisions.
 **Gotcha:** Auto-generated rules have `comment="auto:{counterparty}"` — filter on this to distinguish from hand-crafted rules when debugging or cleaning up.
 
-## Haiku for interactive suggestions, Sonnet for batch import
-`POST /categories/suggest` (called from the review modal) uses `claude-haiku-4-5-20251001`; the enricher's `apply_llm` defaults to `claude-sonnet-4-6`.
-**Why:** Suggestions in the review modal are interactive and latency-sensitive — user is waiting. Haiku responds ~5× faster and costs ~20× less per token. Sonnet is reserved for the bulk import pass where accuracy matters more than speed.
-**Tradeoff:** Haiku may produce slightly less accurate category assignments on ambiguous merchants. The review UI lets the user correct any mistakes before applying, so errors are caught before they land in the DB.
+## Suggest endpoint uses the configured provider, not a hardcoded model
+`POST /categories/suggest` uses whichever provider is configured via `LLM_PROVIDER` / `LLM_MODEL`. Previously hardcoded to Haiku.
+**Why:** With Groq as the default free provider, hardcoding Haiku meant the suggest endpoint would only work for Claude users. The configured provider is already fast enough for interactive use — Groq's Llama 3.3 70B responds in ~1s for a 20-item batch.
+**Tradeoff:** Provider consistency means the same model handles both interactive suggestions and batch enrichment. If a user switches to a slow/expensive provider, suggest latency increases accordingly.
 
 ## DuckDB thread-safety — threading.Lock in _load_df()
 FastAPI sync route handlers run in a thread pool. The dashboard fires 5 simultaneous SSR requests via `Promise.allSettled`, resulting in 5 threads all calling `conn.execute()` on the same global `duckdb.DuckDBPyConnection`. DuckDB's Python connection object is not thread-safe for concurrent operations.
@@ -126,6 +126,26 @@ Pekao exports both the pending and settled versions of a BLIK transaction, each 
 **Why:** Without the secondary check, recurring BLIK payments (e.g. Przelewy24 monthly subscription) imported across two CSVs appeared twice — once as the pending booking and once as the settled one.
 **Tradeoff:** The secondary check queries the DB once per BLIK transaction during ingest — O(N) extra queries but negligible for typical import sizes (<500 rows). The check uses `title LIKE '%BLIK REF {ref}%' AND abs_amount = ? AND currency = ?` which is precise enough given BLIK REF numbers are unique.
 **Gotcha:** Non-BLIK transactions (no REF in title) skip the secondary check entirely — only hash dedup applies to them.
+
+## Groq as default LLM provider
+`LLM_PROVIDER` defaults to `groq`; `GroqProvider` wraps the OpenAI-compatible Groq API (`https://api.groq.com/openai/v1`) with model `llama-3.3-70b-versatile`.
+**Why:** Gemini free tier has a `limit: 0` on Workspace accounts and some billing-enabled projects — users were getting quota errors with no clear fix. Groq has a generous free tier (14,400 req/day), no billing requirement, and no workspace restrictions. OpenAI-compatible API means `GroqProvider` reuses the existing `OpenAIProvider` structure with a `base_url` override.
+**Tradeoff:** Groq free tier has rate limits and model availability may change. Other providers (Gemini, Claude, OpenAI) remain fully supported via AI Settings.
+
+## LLM disabled during import, deferred to review modal
+`use_llm` parameter on `POST /ingest` defaults to `false`. LLM enrichment happens only when the user clicks "Suggest with AI" in the post-import modal.
+**Why:** With `use_llm=true`, a quota-exhausted API key causes the import request to hang until the browser drops the connection ("Cannot reach the server"). The import itself (parsing + dedup + regex) takes <1s; the LLM call is 5–30s. Separating them makes the import fast and failures observable.
+**Tradeoff:** Users who want fully automatic enrichment at import time must manually click Suggest. Acceptable — the review modal is the intended workflow anyway.
+
+## In-memory per-IP rate limiting on `/categories/suggest`
+Simple `defaultdict(list)` of timestamps per IP, protected by `threading.Lock`. Configurable via `SUGGEST_RATE_LIMIT` (default 5) and `SUGGEST_RATE_WINDOW` (default 600s). Returns HTTP 429 on breach.
+**Why:** The suggest endpoint calls an external LLM API. Without rate limiting, a single user (or accidental loop) can exhaust API quota. Redis is overkill for a single-user personal app — the in-memory solution is zero-dependency and survives typical use patterns.
+**Tradeoff:** Rate limit state is lost on backend restart. Acceptable — restarts are infrequent and the window is short (10 min).
+
+## Category rename/delete with automatic remapping
+`PATCH /categories/rename` and `DELETE /categories/by-name` both update `transactions.category` and `category_rules.category` in a single operation.
+**Why:** Without remapping, renaming a category would leave existing transactions under the old name with no matching rule — they'd be orphaned and invisible in the new category. Atomically renaming everywhere keeps data consistent without a migration.
+**Tradeoff:** Delete resets transactions to `Uncategorized` and removes all associated rules. There is no soft-delete or undo. The UI shows the affected transaction count before confirming.
 
 ## Gmail redirect URI as configurable env var
 The Gmail OAuth callback URI was originally hardcoded as `http://localhost:8000/api/v1/gmail/callback` in `routers/gmail.py`.

@@ -138,13 +138,38 @@
 - `routers/gmail.py`: replaced hardcoded `_REDIRECT_URI` with `settings.gmail_redirect_uri` — fixes Docker/prod deploys
 - `services/gmail.py`: `refresh_access_token` uses `.get("refresh_token")` with explicit `ValueError` instead of `KeyError`
 
+### PR #15 — feat/millennium-bank → main (merged)
+- `services/parser.py`: `detect_and_parse()` auto-routes by file extension + headers — Pekao CSV or Millennium XLSX
+- Millennium XLSX parser: reads `openpyxl` workbook, maps Polish column names, normalises amounts, derives `direction` + `counterparty`
+- `routers/ingest.py`: accepts `.xlsx` in addition to `.csv`; passes file bytes to `detect_and_parse()`
+- Frontend: `UploadCsv` `accept=".csv,.xlsx"`; empty-state copy made bank-agnostic
+- ID collision fix: same-day identical transactions from Millennium (no reference field) get a counter suffix to avoid hash collisions
+- `docker-compose.prod.yml` SSR fix: `API_URL: http://backend:8000/api/v1` added to frontend service env
+
+### PR #16 — feat/toast-notifications → main (merged)
+- `UploadCsv.tsx`: `sonner` toast on import success ("+N imported · N categorized · N skipped") and error
+- `DeleteAllTransactions.tsx`: toast on success and error; "Nothing new" info toast when all rows are duplicates
+
+### PR #17 — feat/ai-suggest-groq-categories → main (merged)
+- **Groq provider** (`services/llm.py`): `GroqProvider` (OpenAI-compatible, `llama-3.3-70b-versatile`); `LLM_PROVIDER` default changed to `groq`; `GROQ_API_KEY` config setting
+- **AI suggest reliability**: `LLMProvider.categorize()` previously swallowed all errors and returned `{}`; now re-raises `last_error` when all batches fail; `POST /categories/suggest` returns HTTP 502/429/503 with readable message; error shown inline in the review modal
+- **Import no longer blocks**: `use_llm` defaults to `false` — LLM enrichment deferred to post-import review
+- **Per-IP rate limiting** on `/categories/suggest`: in-memory `defaultdict(list)` + `threading.Lock`; configurable via `SUGGEST_RATE_LIMIT` / `SUGGEST_RATE_WINDOW`; HTTP 429 on breach
+- **Richer LLM prompt**: ~150 Polish merchant/brand references across 12 categories; `count` and `bank_category` included per suggest item for better accuracy
+- **`config.py`**: `groq_api_key`, `suggest_rate_limit`, `suggest_rate_window` settings
+- **`routers/settings.py`**: groq added to `_KEY_ATTR` / `_ENV_VAR`
+- **Category management modal** (`CategoriesModal.tsx`): lists all categories with transaction counts; double-click or button to rename (remaps transactions + rules); delete with confirmation showing affected count
+- **`GET /categories/stats`**, **`PATCH /categories/rename`**, **`DELETE /categories/by-name`** endpoints added
+- **Sidebar**: Categories button above AI Settings (desktop + mobile)
+- **Delete all confirmation**: replaced inline confirm row with proper modal overlay
+- **Regex rules expanded** (`enricher.py`): lounge/landia→Entertainment; nails/beauty→Personal Care; pull&bear/bershka/zara/h&m/pepco/reserved/adidas/nike/puma→Clothing; optyk/optic→Healthcare; poczta/relay/mediamarkt/tkmaxx→Online Shopping; t-mobile/play/orange/vodafone→Subscriptions; smak→Food & Dining; fixed `basecampstudent` word-boundary bug
+- **Import review UX**: bouncing dots on Import + Suggest buttons; progress bar animates from 0 on modal open and grows live; Suggest button shows live coverage %; `+X% from review` emerald delta
+- **Success animation**: SVG checkmark with circle-draw (0.65s) + tick-draw (0.35s after 0.6s delay); success state enters with `fade-in zoom-in-95`; if final coverage ≥ 80% modal fades out + scales down and navigates to `/` after 2.5s
+
 ## In Progress / Pending
-- **`docker-compose.prod.yml` SSR bug**: `API_URL: http://backend:8000/api/v1` still missing from frontend service env
 - **Regex rules gap**: BINANCE (crypto), personal transfers, SZOPEX (shoes) — still uncategorized
 - **Dead code to clean**: `regularityColor` in RecurringCostsCard (unused), `MonthlyBreakdownTable` component (unused), `barColor.replace()` string hack in CategoryDeltasTable
 - **`months=0` sentinel**: `period=all` maps to `months=0` (falsy in JS → no param sent to backend). Fragile — if `0` ever reaches `_period()` it filters to current month only. Should use `undefined` explicitly
 - **`income_sources` currency field**: uses `"first"` aggregation — fragile if a counterparty has mixed USD/PLN rows
-- **Nov 2024 65.50 PLN PAYPRO transaction**: merchant unidentified — no Przelewy24 email found for that date
 - Phase 3: Apple Wallet export parsing endpoint
 - Phase 3: Manual cash entry UI (quick-add modal)
-- Inline category editing on transactions page
