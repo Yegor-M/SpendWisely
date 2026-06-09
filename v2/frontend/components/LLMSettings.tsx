@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { GmailSettings } from "@/components/GmailSettings";
 
-type Provider = "gemini" | "claude" | "openai";
+type Provider = "groq" | "gemini" | "claude" | "openai";
 
 const PROVIDERS: {
   id: Provider;
@@ -15,9 +15,18 @@ const PROVIDERS: {
   keyPlaceholder: string;
 }[] = [
   {
+    id: "groq",
+    name: "Groq",
+    description: "Free tier — 14 400 req/day, no billing",
+    model: "llama-3.3-70b-versatile",
+    free: true,
+    keyLink: "https://console.groq.com/keys",
+    keyPlaceholder: "gsk_...",
+  },
+  {
     id: "gemini",
     name: "Gemini",
-    description: "Free tier available — no billing required",
+    description: "Free tier — personal Gmail only",
     model: "gemini-2.0-flash",
     free: true,
     keyLink: "https://aistudio.google.com/apikey",
@@ -48,7 +57,7 @@ type Props = { open: boolean; onClose: () => void };
 
 export function LLMSettings({ open, onClose }: Props) {
   const [tab, setTab] = useState<Tab>("ai");
-  const [provider, setProvider] = useState<Provider>("gemini");
+  const [provider, setProvider] = useState<Provider>("groq");
   const [apiKey, setApiKey] = useState("");
   const [keySet, setKeySet] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -121,7 +130,7 @@ export function LLMSettings({ open, onClose }: Props) {
           {/* Provider selector — AI tab only */}
           <div className={tab !== "ai" ? "hidden" : ""}>
             <p className="text-xs text-muted-foreground mb-2">Provider</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {PROVIDERS.map((p) => (
                 <button
                   key={p.id}

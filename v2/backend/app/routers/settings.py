@@ -17,11 +17,13 @@ _KEY_ATTR = {
     "claude": "anthropic_api_key",
     "openai": "openai_api_key",
     "gemini": "google_api_key",
+    "groq":   "groq_api_key",
 }
 _ENV_VAR = {
     "claude": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "gemini": "GOOGLE_API_KEY",
+    "groq":   "GROQ_API_KEY",
 }
 
 

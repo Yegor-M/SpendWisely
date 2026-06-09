@@ -117,6 +117,7 @@ category_rules: id, category, pattern, fields[], priority, comment
 - [ ] Phase 3: Manual cash entry UI (quick-add modal)
 - [ ] Category edit inline on transactions page
 - [ ] Fix dead code: `regularityColor` in RecurringCostsCard, unused `MonthlyBreakdownTable` component, `barColor.replace()` string hack in CategoryDeltasTable
+- [ ] Gmail PAYPRO verification tool — `GET /gmail/lookup-paypro?date=&amount=` endpoint + "Verify via Gmail" button on PAYPRO rows in ImportReview modal; searches `from:przelewy24.pl` by date window + amount, returns real merchant for approve/categorize flow
 
 ## Do not touch without asking
 - `v2/backend/app/database.py` — schema changes need migration strategy

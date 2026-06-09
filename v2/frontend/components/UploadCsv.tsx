@@ -22,7 +22,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_llm=true`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_llm=false`,
         { method: "POST", body: fd }
       );
       if (!res.ok) throw new Error(await res.text());
@@ -72,7 +72,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
           disabled={loading}
           className="h-8 px-3.5 rounded-lg text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Importing…" : "Import CSV"}
+          {loading ? <span className="flex items-center gap-1">Importing<span className="flex gap-0.5"><span className="animate-bounce [animation-delay:0ms]">.</span><span className="animate-bounce [animation-delay:150ms]">.</span><span className="animate-bounce [animation-delay:300ms]">.</span></span></span> : "Import CSV"}
         </button>
         <input ref={inputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleUpload} />
       </div>

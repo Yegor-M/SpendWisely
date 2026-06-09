@@ -53,6 +53,7 @@ class UncategorizedGroup(BaseModel):
     count: int
     total_amount: float
     tx_ids: list[str]
+    bank_category: str = ""
 
 
 class BulkCategorizeItem(BaseModel):
@@ -75,6 +76,7 @@ class SuggestItem(BaseModel):
     abs_amount: float = 0.0
     currency: str = "PLN"
     bank_category: str = ""
+    count: int = 1
 
 
 class IngestResult(BaseModel):

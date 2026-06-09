@@ -165,6 +165,7 @@ export type UncategorizedGroup = {
   count: number;
   total_amount: number;
   tx_ids: string[];
+  bank_category: string;
 };
 
 export type IngestResult = {
@@ -229,7 +230,11 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1") + path,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
   );
-  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
+  if (!res.ok) {
+    let detail = `POST ${path} → ${res.status}`;
+    try { const j = await res.json(); if (j.detail) detail = j.detail; } catch { /* ignore */ }
+    throw new Error(detail);
+  }
   return res.json();
 }
 
@@ -277,7 +282,12 @@ export const api = {
     get<TransactionAggregate>("/transactions/aggregate", params),
   deleteAllTransactions: () => del<{ deleted: number }>("/transactions"),
   listCategories: () => get<string[]>("/categories"),
-  suggestCategories: (items: Array<{ id: string; counterparty: string; title: string; abs_amount: number }>) =>
+  listCategoryStats: () => get<Array<{ name: string; count: number }>>("/categories/stats"),
+  renameCategory: (from_cat: string, to_cat: string) =>
+    patch<{ ok: boolean }>("/categories/rename", { from_cat, to_cat }),
+  deleteCategory: (name: string) =>
+    del<{ ok: boolean }>(`/categories/by-name?name=${encodeURIComponent(name)}`),
+  suggestCategories: (items: Array<{ id: string; counterparty: string; title: string; abs_amount: number; bank_category: string; count: number }>) =>
     post<Record<string, string>>("/categories/suggest", items),
   bulkCategorize: (items: BulkCategorizeItem[]) =>
     post<BulkCategorizeResult>("/transactions/bulk-categorize", items),
