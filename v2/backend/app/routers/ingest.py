@@ -18,7 +18,7 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 @router.post("", response_model=IngestResult)
 async def ingest_csv(
     file: UploadFile = File(...),
-    use_llm: bool  = Query(default=True,  description="Run LLM categorisation pass"),
+    use_llm: bool  = Query(default=False, description="Run LLM categorisation pass"),
     provider: str  = Query(default="",    description="Override LLM provider (claude|openai|gemini)"),
     model: str     = Query(default="",    description="Override model name"),
 ):
@@ -108,12 +108,14 @@ async def ingest_csv(
         unc = active[active["category"] == "Uncategorized"].copy()
         unc["counterparty"] = unc["counterparty"].fillna("").astype(str)
         for cp, grp in unc.groupby("counterparty", sort=False):
+            bank_cat_mode = grp["bank_category"].mode()
             groups.append(UncategorizedGroup(
                 counterparty=str(cp) or "(unknown)",
                 sample_title=str(grp.iloc[0].get("title", "")),
                 count=len(grp),
                 total_amount=float(grp["abs_amount"].sum()),
                 tx_ids=grp["id"].tolist(),
+                bank_category=str(bank_cat_mode.iloc[0]) if not bank_cat_mode.empty else "",
             ))
         groups.sort(key=lambda g: -g.count)
 

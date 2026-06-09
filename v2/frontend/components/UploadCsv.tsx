@@ -22,7 +22,7 @@ export function UploadCsv({ onDone }: { onDone?: () => void }) {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_llm=true`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/ingest?use_llm=false`,
         { method: "POST", body: fd }
       );
       if (!res.ok) throw new Error(await res.text());

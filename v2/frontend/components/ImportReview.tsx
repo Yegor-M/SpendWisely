@@ -18,6 +18,7 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
     Object.fromEntries(groups.map((g) => [g.counterparty, { category: "", saveRule: true }]))
   );
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState<{ updated: number; rules: number; extra: number } | null>(null);
 
@@ -31,12 +32,15 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
 
   async function handleSuggest() {
     setSuggesting(true);
+    setSuggestError(null);
     try {
       const reps = groups.map((g) => ({
         id: g.counterparty,
         counterparty: g.counterparty,
         title: g.sample_title,
         abs_amount: g.count > 0 ? g.total_amount / g.count : 0,
+        bank_category: g.bank_category,
+        count: g.count,
       }));
       const suggestions = await api.suggestCategories(reps);
       setAssignments((prev) => {
@@ -47,7 +51,16 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
         return next;
       });
     } catch (e) {
-      console.error("Suggest failed", e);
+      const msg = e instanceof Error ? e.message : "AI suggest failed";
+      setSuggestError(
+        msg.toLowerCase().includes("too many")
+          ? msg
+          : msg.toLowerCase().includes("quota") || msg.includes("429")
+          ? "Quota exceeded — check your API key or try again later"
+          : msg.toLowerCase().includes("configured")
+          ? "No AI provider configured — add an API key in .env"
+          : "AI suggest failed — check your API key"
+      );
     } finally {
       setSuggesting(false);
     }
@@ -124,7 +137,7 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
                 <thead className="sticky top-0 bg-muted/60 backdrop-blur">
                   <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-4 py-2.5 font-medium">Counterparty</th>
-                    <th className="px-2 py-2.5 font-medium text-right">Txns</th>
+                    <th className="px-2 py-2.5 font-medium text-right">Count</th>
                     <th className="px-2 py-2.5 font-medium text-right">Total</th>
                     <th className="px-3 py-2.5 font-medium">Category</th>
                     <th className="px-3 py-2.5 font-medium text-center">Save rule</th>
@@ -179,13 +192,20 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
 
             {/* Footer */}
             <div className="px-6 py-3.5 border-t border-border flex items-center justify-between gap-3">
-              <button
-                onClick={handleSuggest}
-                disabled={suggesting || applying}
-                className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 disabled:opacity-50 transition-colors"
-              >
-                {suggesting ? "Thinking…" : "✦ Suggest with AI"}
-              </button>
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  onClick={handleSuggest}
+                  disabled={suggesting || applying}
+                  className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 disabled:opacity-50 transition-colors"
+                >
+                  {suggesting ? "Thinking…" : "✦ Suggest with AI"}
+                </button>
+                {suggestError && (
+                  <span className="text-xs text-destructive truncate" title={suggestError}>
+                    {suggestError}
+                  </span>
+                )}
+              </div>
 
               <div className="flex gap-2">
                 <button
