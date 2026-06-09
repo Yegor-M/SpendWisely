@@ -95,7 +95,7 @@ DEFAULT_RULES: list[CategoryRule] = [
     # Accounting tools
     CategoryRule("Accounting",      r"\bweb innovative\b"),
     # Rent
-    CategoryRule("Rent & Housing",  r"\b(?:czynsz|najem|administracja)\b"),
+    CategoryRule("Rent & Housing",  r"\b(?:czynsz|najem|administracja|camp)\b"),
     # Health
     CategoryRule("Healthcare",      r"\b(?:apteka|pharmacy|medicover|lux\s?med|centrum medyczne|dentist|stomatolog|implant)\b"),
     # Personal care
