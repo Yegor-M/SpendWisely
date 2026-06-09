@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api, UncategorizedGroup, BulkCategorizeItem } from "@/lib/api";
 
 type Assignment = { category: string; saveRule: boolean };
@@ -12,6 +13,42 @@ type Props = {
   onDone: () => void;
 };
 
+function AnimatedCheck() {
+  return (
+    <div className="relative w-20 h-20">
+      {/* Circle draws itself clockwise from 12 o'clock */}
+      <svg viewBox="0 0 52 52" className="w-full h-full -rotate-90">
+        {/* Track */}
+        <circle cx="26" cy="26" r="23" fill="none" stroke="currentColor"
+          strokeWidth="2" className="text-muted" />
+        {/* Animated fill */}
+        <circle cx="26" cy="26" r="23" fill="none" stroke="currentColor"
+          strokeWidth="2.5" className="text-emerald-500"
+          style={{
+            strokeDasharray: 145,
+            strokeDashoffset: 145,
+            animation: "circle-draw 0.65s cubic-bezier(0.4,0,0.2,1) forwards",
+          }}
+        />
+      </svg>
+      {/* Check tick — separate SVG so it doesn't rotate */}
+      <svg viewBox="0 0 52 52" className="absolute inset-0 w-full h-full">
+        <path
+          fill="none" stroke="currentColor" strokeWidth="3.5"
+          strokeLinecap="round" strokeLinejoin="round"
+          d="M15 27 L22 34 L37 19"
+          className="text-emerald-500"
+          style={{
+            strokeDasharray: 32,
+            strokeDashoffset: 32,
+            animation: "check-draw 0.35s 0.6s cubic-bezier(0.4,0,0.2,1) forwards",
+          }}
+        />
+      </svg>
+    </div>
+  );
+}
+
 export function ImportReview({ imported, categorized, uncategorized, groups, onDone }: Props) {
   const [categories, setCategories] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<Record<string, Assignment>>(
@@ -21,6 +58,9 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState<{ updated: number; rules: number; extra: number } | null>(null);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     api.listCategories().then(setCategories).catch(() => {});
@@ -40,6 +80,19 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
     const t = setTimeout(() => setBarWidth(totalPct), 50);
     return () => clearTimeout(t);
   }, [totalPct]);
+
+  // Auto-dismiss when result is in and coverage >= 80%
+  useEffect(() => {
+    if (!applyResult) return;
+    if (totalPct < 80) return;
+    const t1 = setTimeout(() => setIsDismissing(true), 1900);
+    const t2 = setTimeout(() => { router.push("/"); onDone(); }, 2500);
+    timers.current = [t1, t2];
+    return () => timers.current.forEach(clearTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyResult]);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   async function handleSuggest() {
     setSuggesting(true);
@@ -109,9 +162,16 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity duration-500 ${
+        isDismissing ? "opacity-0 pointer-events-none" : "opacity-100"
+      }`}
+    >
+      <div
+        className={`bg-background border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transition-all duration-500 ${
+          isDismissing ? "scale-95 -translate-y-3" : "scale-100 translate-y-0"
+        }`}
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-base font-semibold">Import complete — review uncategorized</h2>
@@ -133,22 +193,33 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
         </div>
 
         {applyResult ? (
-          /* Success state */
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-            <div className="text-4xl">✓</div>
-            <p className="font-medium">{applyResult.updated} transactions categorized</p>
-            {applyResult.rules > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {applyResult.rules} rule{applyResult.rules > 1 ? "s" : ""} saved
-                {applyResult.extra > 0 && ` · ${applyResult.extra} older transactions also updated`}
-              </p>
+          /* ── Success state ── */
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-10 text-center animate-in fade-in zoom-in-95 duration-300">
+            <AnimatedCheck />
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold text-base">{applyResult.updated} transactions categorized</p>
+              {applyResult.rules > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {applyResult.rules} rule{applyResult.rules > 1 ? "s" : ""} saved
+                  {applyResult.extra > 0 && ` · ${applyResult.extra} older also updated`}
+                </p>
+              )}
+              {totalPct >= 80 ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {totalPct}% covered — closing automatically…
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">{totalPct}% of import categorized</p>
+              )}
+            </div>
+            {totalPct < 80 && (
+              <button
+                onClick={onDone}
+                className="mt-1 px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/90 transition-colors"
+              >
+                Done
+              </button>
             )}
-            <button
-              onClick={onDone}
-              className="mt-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/90 transition-colors"
-            >
-              Done
-            </button>
           </div>
         ) : (
           <>
