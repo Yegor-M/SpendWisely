@@ -90,16 +90,10 @@ DEFAULT_RULES: list[CategoryRule] = [
     CategoryRule("Food & Dining",   r"\b(?:restaurant|bistro|bar mleczny|pierogarnia)\b"),
     # Coffee
     CategoryRule("Coffee & Cafes",  r"\b(?:kawiarnia|starbucks|costa|caffe|green caffe|nero|coffeeheaven|gelateria|lody)\b"),
-    # Subscriptions & SaaS
-    CategoryRule("Subscriptions",   r"\b(?:netflix|spotify|google|apple|microsoft|adobe|jdmi|dropbox|openai|chatgpt|claude|anthropic)\b"),
     # Accounting tools
     CategoryRule("Accounting",      r"\bweb innovative\b"),
     # Rent
-    CategoryRule("Rent & Housing",  r"\b(?:czynsz|najem|administracja|camp)\b"),
-    # Health
-    CategoryRule("Healthcare",      r"\b(?:apteka|pharmacy|medicover|lux\s?med|centrum medyczne|dentist|stomatolog|implant)\b"),
-    # Personal care
-    CategoryRule("Personal Care",   r"\b(?:barber|fryzjer|salon|expert barber|rossmann|drogeria|sephora)\b"),
+    CategoryRule("Rent & Housing",  r"\b(?:czynsz|najem|administracja)\b|basecampstudent"),
     # Cash
     CategoryRule("ATM / Cash",      r"\b(?:bankomat|wypłata|atm)\b"),
     # Pets
@@ -109,9 +103,22 @@ DEFAULT_RULES: list[CategoryRule] = [
     # Crypto
     CategoryRule("Crypto",          r"\b(?:binance|kraken|coinbase|crypto)\b"),
     # Entertainment
-    CategoryRule("Entertainment",   r"\b(?:helios|kino|klub|cinema|teatr|eventim|midaticket|ticketmaster)\b"),
-    # Shopping
-    CategoryRule("Online Shopping", r"\b(?:allegro|amazon|zalando|ole ole|empik)\b"),
+    CategoryRule("Entertainment",   r"\b(?:helios|kino|klub|cinema|teatr|eventim|midaticket|ticketmaster|lounge)\b"),
+    CategoryRule("Entertainment",   r"landia\b"),
+    # Shopping — online marketplaces
+    CategoryRule("Online Shopping", r"\b(?:allegro|amazon|zalando|ole\s?ole|empik|media.?markt|mediamarkt|relay|poczta)\b"),
+    # Clothing & fashion brands
+    CategoryRule("Clothing",        r"\b(?:pull[\s&]+bear|bershka|zara|h&m|\bh\s?m\b|pepco|new.?yorker|c&a|reserved|house|cropp|sinsay|mohito|solar|diverse|big\s?star|tk.?maxx|tkmaxx)\b"),
+    CategoryRule("Clothing",        r"\b(?:adidas|nike|puma|reebok|new.?balance|under.?armour|columbia|the.?north.?face|asics|vans|converse)\b"),
+    # Personal care
+    CategoryRule("Personal Care",   r"\b(?:barber|fryzjer|salon|expert barber|rossmann|drogeria|sephora|nails|beauty)\b"),
+    # Healthcare — opticians
+    CategoryRule("Healthcare",      r"\b(?:apteka|pharmacy|medicover|lux\s?med|centrum medyczne|dentist|stomatolog|implant|optyk|optika|optician|optic)\b"),
+    # Telecoms → Subscriptions
+    CategoryRule("Subscriptions",   r"\b(?:netflix|spotify|google|apple|microsoft|adobe|jdmi|dropbox|openai|chatgpt|claude|anthropic)\b"),
+    CategoryRule("Subscriptions",   r"\b(?:t-?mobile|polkomtel|play\s+sp|play\s+online|orange\s+polska|plus\s+sp|vodafone|a1\s+polska|lycamobile)\b"),
+    # Food
+    CategoryRule("Food & Dining",   r"\b(?:smak)\b"),
     # Sports
     CategoryRule("Sports & Fitness",r"\b(?:ares|fight club|fitprofit|multisport|siłownia|gym)\b"),
     # Gifts

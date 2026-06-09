@@ -30,6 +30,17 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
   const pct = active > 0 ? Math.round((categorized / active) * 100) : 0;
   const filled = Object.values(assignments).filter((a) => a.category).length;
 
+  const filledTx = groups
+    .filter((g) => assignments[g.counterparty]?.category)
+    .reduce((s, g) => s + g.count, 0);
+  const totalPct = active > 0 ? Math.round(((categorized + filledTx) / active) * 100) : 0;
+
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setBarWidth(totalPct), 50);
+    return () => clearTimeout(t);
+  }, [totalPct]);
+
   async function handleSuggest() {
     setSuggesting(true);
     setSuggestError(null);
@@ -104,11 +115,21 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-base font-semibold">Import complete — review uncategorized</h2>
-          <div className="flex gap-4 mt-1.5 text-sm text-muted-foreground">
-            <span className="text-emerald-600 font-medium">{imported} imported</span>
-            <span>{categorized} categorized ({pct}%)</span>
+          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+            <span className="text-foreground font-medium">{imported} imported</span>
+            <span className="text-emerald-600 font-medium">{categorized} categorized</span>
             <span className="text-amber-600 font-medium">{uncategorized} need review</span>
           </div>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-700 ease-out"
+              style={{ width: `${barWidth}%` }}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {totalPct}% categorized
+            {totalPct > pct && <span className="text-emerald-600 font-medium"> (+{totalPct - pct}% from review)</span>}
+          </p>
         </div>
 
         {applyResult ? (
@@ -198,7 +219,10 @@ export function ImportReview({ imported, categorized, uncategorized, groups, onD
                   disabled={suggesting || applying}
                   className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 disabled:opacity-50 transition-colors"
                 >
-                  {suggesting ? "Thinking…" : "✦ Suggest with AI"}
+                  {suggesting
+                    ? <span className="flex items-center gap-1">Thinking<span className="flex gap-0.5"><span className="animate-bounce [animation-delay:0ms]">.</span><span className="animate-bounce [animation-delay:150ms]">.</span><span className="animate-bounce [animation-delay:300ms]">.</span></span></span>
+                    : <span className="flex items-center gap-1.5">✦ Suggest with AI{filled > 0 && <span className="text-emerald-600 font-medium">{totalPct}%</span>}</span>
+                  }
                 </button>
                 {suggestError && (
                   <span className="text-xs text-destructive truncate" title={suggestError}>
