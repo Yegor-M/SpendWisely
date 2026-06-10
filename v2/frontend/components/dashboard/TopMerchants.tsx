@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Merchant } from "@/lib/api";
 
@@ -7,6 +8,13 @@ const fmt = (n: number) =>
 
 export function TopMerchants({ data }: { data: Merchant[] }) {
   const max = data[0]?.total ?? 1;
+  const [grown, setGrown] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setGrown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -24,8 +32,11 @@ export function TopMerchants({ data }: { data: Merchant[] }) {
               </span>
               <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-accent transition-all"
-                  style={{ width: `${(m.total / max) * 100}%` }}
+                  className="h-full rounded-full bg-accent transition-all duration-700 ease-out"
+                  style={{
+                    width: grown ? `${(m.total / max) * 100}%` : "0%",
+                    transitionDelay: `${i * 40}ms`,
+                  }}
                 />
               </div>
               <span className="text-[13px] tabular-nums text-right w-20 shrink-0">

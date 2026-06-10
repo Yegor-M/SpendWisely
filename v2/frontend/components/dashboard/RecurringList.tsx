@@ -21,10 +21,11 @@ export function RecurringList({ data }: { data: Recurring[] }) {
       </CardHeader>
       <CardContent>
         <div className="divide-y divide-border/50">
-          {monthly.slice(0, 12).map((r) => (
+          {monthly.slice(0, 12).map((r, i) => (
             <div
               key={`${r.counterparty}-${r.amount}`}
-              className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0"
+              className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both"
+              style={{ animationDelay: `${i * 30}ms` }}
             >
               <div className="min-w-0">
                 <p className="text-[13px] font-medium truncate">{r.counterparty}</p>
